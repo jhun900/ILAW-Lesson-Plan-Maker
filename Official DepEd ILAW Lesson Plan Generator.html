@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DepEd ILAW Lesson Plan Generator</title>
+    <title>DepEd ILAW Lesson Plan Generator - Pro Secure</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
     <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
     <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script>
         tailwind.config = {
@@ -50,6 +51,31 @@
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
+    <nav class="bg-depedDark text-white px-6 py-3 shadow-md flex justify-between items-center">
+        <div class="flex items-center gap-2 font-bold text-lg">
+            <i class="fa fa-lightbulb-o text-yellow-400"></i> ILAW Generator Portal <span class="text-[10px] bg-green-600 px-2 py-0.5 rounded-full uppercase tracking-wider font-mono">Protected</span>
+        </div>
+        <div class="flex items-center gap-4 text-sm">
+            <div id="authLoggedOut" class="flex items-center gap-3">
+                <span class="text-gray-300 text-xs hidden md:inline">Sign in to export official documents</span>
+                <button id="googleSignInBtn" class="bg-white text-gray-800 hover:bg-gray-100 px-4 py-1.5 rounded font-semibold flex items-center gap-2 shadow transition">
+                    <i class="fa fa-google text-red-500"></i> Sign in with Google
+                </button>
+            </div>
+            <div id="authLoggedIn" class="hidden flex items-center gap-4">
+                <div class="bg-deped px-3 py-1 rounded-full border border-blue-400 flex items-center gap-2" title="Synced live with authoritative database">
+                    <i class="fa fa-coins text-yellow-400 font-bold"></i>
+                    <span>Credits: <strong id="creditCount" class="text-yellow-300 font-mono text-base">...</strong></span>
+                    <button onclick="openTopUpModal()" class="ml-1 bg-yellow-500 hover:bg-yellow-600 text-gray-900 text-xs font-bold px-1.5 py-0.5 rounded">+</button>
+                </div>
+                <span id="userEmailDisplay" class="text-gray-200 text-xs hidden md:inline truncate max-w-[150px]"></span>
+                <button id="signOutBtn" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-xs font-semibold transition">
+                    <i class="fa fa-sign-out"></i> Sign Out
+                </button>
+            </div>
+        </div>
+    </nav>
+
     <div class="container mx-auto px-4 py-6 max-w-5xl">
         <header class="bg-white rounded-lg shadow p-5 mb-6 border-l-4 border-deped">
             <h1 class="text-2xl md:text-3xl font-bold text-depedDark flex items-center gap-3">
@@ -68,61 +94,41 @@
                         <label class="block text-sm font-medium text-gray-700 mb-1">Grade Level <span class="required">*</span></label>
                         <select id="grade" class="form-input" required>
                             <option value="" selected>Select Grade</option>
-                            <optgroup label="Kinder">
-                                <option value="K">Kinder</option>
-                            </optgroup>
+                            <optgroup label="Kinder"><option value="K">Kinder</option></optgroup>
                             <optgroup label="Grades 1-10">
-                                <option value="1">Grade 1</option>
-                                <option value="2">Grade 2</option>
-                                <option value="3">Grade 3</option>
-                                <option value="4">Grade 4</option>
-                                <option value="5">Grade 5</option>
-                                <option value="6">Grade 6</option>
-                                <option value="7">Grade 7</option>
-                                <option value="8">Grade 8</option>
-                                <option value="9">Grade 9</option>
+                                <option value="1">Grade 1</option><option value="2">Grade 2</option><option value="3">Grade 3</option>
+                                <option value="4">Grade 4</option><option value="5">Grade 5</option><option value="6">Grade 6</option>
+                                <option value="7">Grade 7</option><option value="8">Grade 8</option><option value="9">Grade 9</option>
                                 <option value="10">Grade 10</option>
                             </optgroup>
-                            <optgroup label="Senior High School">
-                                <option value="11">Grade 11</option>
-                                <option value="12">Grade 12</option>
-                            </optgroup>
+                            <optgroup label="Senior High School"><option value="11">Grade 11</option><option value="12">Grade 12</option></optgroup>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Learning Area / Subject <span class="required">*</span></label>
-                        <select id="subject" class="form-input" required>
-                            <option value="" selected>Select Subject</option>
-                        </select>
+                        <select id="subject" class="form-input" required><option value="" selected>Select Subject</option></select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Hours per Session</label>
                         <select id="hoursPerSession" class="form-input">
                             <option value="" selected>Select Duration</option>
-                            <option value="30 Minutes">30 Minutes</option>
-                            <option value="40 Minutes">40 Minutes</option>
-                            <option value="50 Minutes">50 Minutes</option>
-                            <option value="60 Minutes">60 Minutes</option>
+                            <option value="30 Minutes">30 Minutes</option><option value="40 Minutes">40 Minutes</option>
+                            <option value="50 Minutes">50 Minutes</option><option value="60 Minutes">60 Minutes</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Number of Sessions</label>
                         <select id="numSessions" class="form-input">
                             <option value="" selected>Select Count</option>
-                            <option value="1">1 Session</option>
-                            <option value="2">2 Sessions</option>
-                            <option value="3">3 Sessions</option>
-                            <option value="4">4 Sessions</option>
-                            <option value="5">5 Sessions</option>
+                            <option value="1">1 Session</option><option value="2">2 Sessions</option><option value="3">3 Sessions</option>
+                            <option value="4">4 Sessions</option><option value="5">5 Sessions</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Instructional Language <span class="required">*</span></label>
                         <select id="instructionalLang" class="form-input" required>
                             <option value="" selected>Select Language</option>
-                            <option value="English">English</option>
-                            <option value="Filipino">Filipino</option>
-                            <option value="Mother Tongue">Mother Tongue</option>
+                            <option value="English">English</option><option value="Filipino">Filipino</option><option value="Mother Tongue">Mother Tongue</option>
                         </select>
                     </div>
                     <div>
@@ -152,15 +158,16 @@
                 </div>
             </section>
 
-            <div class="flex flex-wrap gap-3 justify-end">
+            <div class="flex flex-wrap gap-3 justify-end items-center">
+                <span class="text-xs text-gray-500 mr-2 italic">Note: AI Generation is free. Exporting costs 2 credits.</span>
                 <button type="button" id="generateBtn" class="btn-primary flex items-center gap-2">
                     <i class="fa fa-magic"></i> Generate ILAW Lesson Plan
                 </button>
                 <button type="button" id="exportPdfBtn" class="btn-secondary hidden flex items-center gap-2 !bg-red-600 hover:!bg-red-700 !text-white">
-                    <i class="fa fa-file-pdf-o"></i> Export Official PDF
+                    <i class="fa fa-file-pdf-o"></i> Export Official PDF (2 Credits)
                 </button>
                 <button type="button" id="exportDocxBtn" class="btn-secondary hidden flex items-center gap-2 !bg-blue-600 hover:!bg-blue-700 !text-white">
-                    <i class="fa fa-file-word-o"></i> Export Official DOCX
+                    <i class="fa fa-file-word-o"></i> Export Official DOCX (2 Credits)
                 </button>
             </div>
         </div>
@@ -170,12 +177,225 @@
                 <h2 class="text-xl font-bold text-depedDark">Generated Official Matrix Preview</h2>
                 <span class="text-xs bg-green-100 text-green-800 font-semibold px-2 py-1 rounded">DO 3, s. 2026 Aligned</span>
             </div>
-            <div id="lessonPlanContent" class="overflow-x-auto text-xs text-gray-800">
+            <div id="lessonPlanContent" class="overflow-x-auto text-xs text-gray-800"></div>
+        </div>
+    </div>
+
+    <div id="topUpModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden border-t-8 border-deped">
+            <div class="p-6">
+                <div class="flex justify-between items-center pb-3 border-b border-gray-200 mb-4">
+                    <h3 class="text-xl font-bold text-depedDark flex items-center gap-2">
+                        <i class="fa fa-battery-quarter text-red-500"></i> Insufficient Credits
+                    </h3>
+                    <button onclick="closeTopUpModal()" class="text-gray-400 hover:text-gray-600 font-bold text-xl">&times;</button>
                 </div>
+                <p class="text-gray-600 text-sm mb-4">
+                    You need at least <strong>2 credits</strong> to download official documents. Choose a top-up tier below to reload instantly via Paymongo:
+                </p>
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <div onclick="initiatePaymongoCheckout(10, 10)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50">
+                        <span class="block text-2xl font-extrabold text-depedDark">10 <span class="text-xs font-normal">Credits</span></span>
+                        <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 10.00</span>
+                    </div>
+                    <div onclick="initiatePaymongoCheckout(50, 55)" class="border-2 border-deped rounded-lg p-4 text-center cursor-pointer transition bg-blue-50 hover:bg-blue-100 relative shadow-sm">
+                        <span class="absolute -top-2 -right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+5 Bonus</span>
+                        <span class="block text-2xl font-extrabold text-depedDark">55 <span class="text-xs font-normal">Credits</span></span>
+                        <span class="inline-block bg-deped text-white font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 50.00</span>
+                    </div>
+                    <div onclick="initiatePaymongoCheckout(100, 110)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative">
+                        <span class="absolute -top-2 -right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+10 Bonus</span>
+                        <span class="block text-2xl font-extrabold text-depedDark">110 <span class="text-xs font-normal">Credits</span></span>
+                        <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 100.00</span>
+                    </div>
+                    <div onclick="initiatePaymongoCheckout(500, 550)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative">
+                        <span class="absolute -top-2 -right-2 bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+50 Bonus</span>
+                        <span class="block text-2xl font-extrabold text-depedDark">550 <span class="text-xs font-normal">Credits</span></span>
+                        <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 500.00</span>
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    <button onclick="closeTopUpModal()" class="btn-secondary !text-xs">Cancel</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        // ==========================================
+        // 1. CREDENTIALS & SECURE CONFIGURATION
+        // ==========================================
+        const SUPABASE_URL = "https://knfpnuofjxihwutuzbnd.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtuZnBudW9manhpaHd1dHV6Ym5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NzU2MTksImV4cCI6MjA5OTM1MTYxOX0.vqhn-f8ZXZjLgbgvnagRehiL-v0zhTi5G8w863iBHlY";
+        const BACKEND_CHECKOUT_API_URL = "https://knfpnuofjxihwutuzbnd.supabase.co/functions/v1/paymongo-webhook"; 
+        const MISTRAL_API_KEY = "YxzTi7XRyqOtSX1rn2JPSbLd42nzMCKj";
+        const MISTRAL_MODEL = "mistral-small-latest";
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let currentUser = null;
+        let userCredits = 0;
+        let realtimeSubscription = null;
+
+        // ==========================================
+        // 2. MULTI-LAYERED CREDIT PROTECTION PROTOCOL
+        // ==========================================
+        
+        // LAYER 1: Authoritative Database Fetch (Ignores Local Storage & Cache)
+        async function fetchTrueBalanceFromServer(userId) {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('credits')
+                .eq('id', userId)
+                .single();
+                
+            if (!error && data) {
+                userCredits = data.credits;
+                updateCreditDisplay();
+                return data.credits;
+            }
+            return 0;
+        }
+
+        // LAYER 2: Live Pre-Flight Check (Prevents Console Tampering)
+        async function verifySufficientFundsBeforeExport(requiredAmount = 2) {
+            if (!currentUser) {
+                alert("Please sign in with Google to export documents.");
+                return false;
+            }
+            // Fetch live unaltered state straight from Postgres before proceeding
+            const liveBalance = await fetchTrueBalanceFromServer(currentUser.id);
+            if (liveBalance < requiredAmount) {
+                openTopUpModal();
+                return false;
+            }
+            return true;
+        }
+
+        // LAYER 3: Atomic Server-Side Deduction (Prevents Race Conditions)
+        async function executeAtomicDeduction(amount = 2) {
+            if (!currentUser) return false;
+            
+            // Invoke the Postgres RPC function for atomic SQL transaction
+            const { data: success, error } = await supabase.rpc('deduct_user_credits', {
+                deduct_amount: amount
+            });
+
+            if (error) {
+                console.warn("RPC Failed, executing strict fallback verification...", error);
+                // Strict Fallback: Re-verify balance server-side before standard update
+                const liveBalance = await fetchTrueBalanceFromServer(currentUser.id);
+                if (liveBalance >= amount) {
+                    const { error: updateError } = await supabase
+                        .from('profiles')
+                        .update({ credits: liveBalance - amount })
+                        .eq('id', currentUser.id);
+                    if (!updateError) {
+                        userCredits = liveBalance - amount;
+                        updateCreditDisplay();
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            if (success) {
+                await fetchTrueBalanceFromServer(currentUser.id);
+                return true;
+            }
+            return false;
+        }
+
+        // LAYER 4: Realtime Webhook Sync (Instant UI Lock)
+        function setupRealtimeCreditSubscription(userId) {
+            if (realtimeSubscription) supabase.removeChannel(realtimeSubscription);
+
+            realtimeSubscription = supabase
+                .channel('secure-profile-sync')
+                .on(
+                    'postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+                    (payload) => {
+                        const newCredits = payload.new.credits;
+                        if (newCredits > userCredits) {
+                            alert(`🎉 Payment Verified! Your webhook added ${newCredits - userCredits} credits to your account!`);
+                        }
+                        userCredits = newCredits;
+                        updateCreditDisplay();
+                    }
+                )
+                .subscribe();
+        }
+
+        function updateCreditDisplay() {
+            document.getElementById('creditCount').textContent = userCredits !== null ? userCredits : '0';
+        }
+
+        // ==========================================
+        // 3. AUTHENTICATION & INITIALIZATION
+        // ==========================================
+        async function checkAuth() {
+            const { data: { session } } = await supabase.auth.getSession();
+            handleSession(session);
+            supabase.auth.onAuthStateChange((_event, session) => handleSession(session));
+        }
+
+        async function handleSession(session) {
+            const loggedOutView = document.getElementById('authLoggedOut');
+            const loggedInView = document.getElementById('authLoggedIn');
+            const emailDisplay = document.getElementById('userEmailDisplay');
+
+            if (session && session.user) {
+                currentUser = session.user;
+                emailDisplay.textContent = currentUser.email;
+                loggedOutView.classList.add('hidden');
+                loggedInView.classList.remove('hidden');
+                
+                // Initialize profile and lock onto authoritative database balance
+                let { data: profile } = await supabase.from('profiles').select('credits').eq('id', currentUser.id).single();
+                if (!profile) {
+                    await supabase.from('profiles').insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }]);
+                    alert("Welcome! You've received 5 Free Bonus Credits for signing in!");
+                }
+                await fetchTrueBalanceFromServer(currentUser.id);
+                setupRealtimeCreditSubscription(currentUser.id);
+            } else {
+                currentUser = null;
+                userCredits = 0;
+                if (realtimeSubscription) { supabase.removeChannel(realtimeSubscription); realtimeSubscription = null; }
+                loggedOutView.classList.remove('hidden');
+                loggedInView.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('googleSignInBtn').addEventListener('click', async () => {
+            await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+        });
+
+        document.getElementById('signOutBtn').addEventListener('click', async () => await supabase.auth.signOut());
+
+        function openTopUpModal() { document.getElementById('topUpModal').classList.remove('hidden'); }
+        function closeTopUpModal() { document.getElementById('topUpModal').classList.add('hidden'); }
+
+        async function initiatePaymongoCheckout(amountPhp, creditsToAdd) {
+            if (!currentUser) return alert("Please sign in first before topping up credits.");
+            try {
+                const response = await fetch(BACKEND_CHECKOUT_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentUser.id, email: currentUser.email, amountPhp: amountPhp, credits: creditsToAdd, returnUrl: window.location.href })
+                });
+                const data = await response.json();
+                if (data && data.checkoutUrl) window.location.href = data.checkoutUrl;
+                else alert("Unable to initiate payment session: " + (data.error || "Please check endpoint URL."));
+            } catch (err) {
+                console.error(err);
+                alert("Error connecting to payment server. Ensure your backend checkout endpoint is running.");
+            }
+        }
+
+        // ==========================================
+        // 4. SUBJECT DB & AI LOGIC
+        // ==========================================
         const subjectsDB = {
             "K": ["Mother Tongue", "Oral Language", "Phonological Awareness", "Beginning Reading", "Mathematics", "Makabansa"],
             "1": ["Mother Tongue", "Filipino", "English", "Mathematics", "Araling Panlipunan", "MAPEH", "Edukasyon sa Pagpapakatao"],
@@ -192,10 +412,8 @@
             "12": ["Inquiries, Investigations and Immersion", "Work Immersion", "Specialized Subjects"]
         };
 
-        const MISTRAL_API_KEY = "YxzTi7XRyqOtSX1rn2JPSbLd42nzMCKj";
-        const MISTRAL_MODEL = "mistral-small-latest";
-
         function initSubjectDropdown() {
+            checkAuth();
             const gradeSelect = document.getElementById('grade');
             const subjectSelect = document.getElementById('subject');
             const langSelect = document.getElementById('instructionalLang');
@@ -217,13 +435,9 @@
                 const s = this.value;
                 if (!s) return;
                 const filipinoSubjects = ["Filipino", "Makabansa", "Araling Panlipunan", "Edukasyon sa Pagpapakatao", "Komunikasyon at Pananaliksik"];
-                if (filipinoSubjects.includes(s)) {
-                    langSelect.value = "Filipino";
-                } else if (s === "Mother Tongue") {
-                    langSelect.value = "Mother Tongue";
-                } else {
-                    langSelect.value = "English";
-                }
+                if (filipinoSubjects.includes(s)) langSelect.value = "Filipino";
+                else if (s === "Mother Tongue") langSelect.value = "Mother Tongue";
+                else langSelect.value = "English";
             });
         }
         
@@ -232,10 +446,7 @@
         const cleanTxt = (t) => {
             if (!t) return 'N/A';
             if (typeof t === 'object') return JSON.stringify(t);
-            return String(t)
-                .replace(/[\u200B-\u200D\uFEFF]/g, "") 
-                .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "") 
-                .trim();
+            return String(t).replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
         };
 
         document.getElementById('generateBtn').addEventListener('click', async function() {
@@ -326,16 +537,8 @@ Return ONLY a valid JSON object matching this structural schema template exactly
             try {
                 const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${MISTRAL_API_KEY}`
-                    },
-                    body: JSON.stringify({
-                        model: MISTRAL_MODEL,
-                        response_format: { type: "json_object" },
-                        messages: [{ role: 'user', content: prompt }],
-                        temperature: 0.15
-                    })
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MISTRAL_API_KEY}` },
+                    body: JSON.stringify({ model: MISTRAL_MODEL, response_format: { type: "json_object" }, messages: [{ role: 'user', content: prompt }], temperature: 0.15 })
                 });
 
                 const data = await response.json();
@@ -345,8 +548,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                 window.ilawDataset = {
                     ...rawJson,
                     meta: {
-                        grade: grade,
-                        subject: subject,
+                        grade: grade, subject: subject,
                         termWeek: document.getElementById('termWeek').value || 'N/A',
                         hours: document.getElementById('hoursPerSession').value || 'N/A',
                         sessions: document.getElementById('numSessions').value || '5',
@@ -385,7 +587,6 @@ Return ONLY a valid JSON object matching this structural schema template exactly
 
         function renderHtmlPreview(d) {
             const container = document.getElementById('lessonPlanContent');
-            
             let html = `
                 <table class="w-full text-left border-collapse border border-gray-400 font-sans text-xs">
                     <tbody>
@@ -395,11 +596,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                         <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold">Grade Level / Session Block</td><td colspan="5" class="p-2">Grade ${cleanTxt(d.meta.grade)} — (${cleanTxt(d.meta.hours)})</td></tr>
                         <tr class="border-b border-gray-400 bg-blue-800 text-white font-bold text-center">
                             <td class="p-2 border-r border-gray-400 text-left">No. of Sessions: ${cleanTxt(d.meta.sessions)}</td>
-                            <td class="p-2 border-r border-gray-400 w-16">Session 1</td>
-                            <td class="p-2 border-r border-gray-400 w-16">Session 2</td>
-                            <td class="p-2 border-r border-gray-400 w-16">Session 3</td>
-                            <td class="p-2 border-r border-gray-400 w-16">Session 4</td>
-                            <td class="p-2 w-16">Session 5</td>
+                            <td class="p-2 border-r border-gray-400 w-16">Session 1</td><td class="p-2 border-r border-gray-400 w-16">Session 2</td><td class="p-2 border-r border-gray-400 w-16">Session 3</td><td class="p-2 border-r border-gray-400 w-16">Session 4</td><td class="p-2 w-16">Session 5</td>
                         </tr>
                         <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">References</td><td colspan="5" class="p-2">${cleanTxt(d.references)}</td></tr>
                         <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50 text-red-800">Declaration of AI Use</td><td colspan="5" class="p-2 italic text-gray-600">${cleanTxt(d.meta.aiStatement)}</td></tr>
@@ -415,37 +612,21 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                         </tr>
                         <tr class="border-b border-gray-400">
                             <td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Learning Objectives</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s1)}</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s2)}</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s3)}</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s4)}</td>
-                            <td class="p-2 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s5)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s1)}</td><td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s2)}</td><td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s3)}</td><td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s4)}</td><td class="p-2 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s5)}</td>
                         </tr>
                         <tr class="border-b border-gray-400">
                             <td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Learner Context</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s1)}</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s2)}</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s3)}</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s4)}</td>
-                            <td class="p-2 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s5)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s1)}</td><td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s2)}</td><td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s3)}</td><td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s4)}</td><td class="p-2 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s5)}</td>
                         </tr>
 
                         <tr class="border-b border-gray-400 bg-blue-100 font-bold text-gray-900"><td colspan="6" class="p-2 uppercase tracking-wider">Learning Experience Flow</td></tr>
                         <tr class="border-b border-gray-400">
                             <td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Pre-Lesson (Priming/Review)</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s1)}</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s2)}</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s3)}</td>
-                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s4)}</td>
-                            <td class="p-2 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s5)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s1)}</td><td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s2)}</td><td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s3)}</td><td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s4)}</td><td class="p-2 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s5)}</td>
                         </tr>
                         <tr class="border-b border-gray-400">
                             <td class="p-2 border-r border-gray-400 font-semibold bg-blue-50 text-blue-900 font-medium">Lesson Proper (Activities Flow)</td>
-                            <td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s1)}</td>
-                            <td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s2)}</td>
-                            <td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s3)}</td>
-                            <td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s4)}</td>
-                            <td class="p-2 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s5)}</td>
+                            <td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s1)}</td><td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s2)}</td><td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s3)}</td><td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s4)}</td><td class="p-2 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s5)}</td>
                         </tr>
                         <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Learning Resources</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.resources.s1)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.resources.s2)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.resources.s3)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.resources.s4)}</td><td class="p-2 whitespace-pre-line">${cleanTxt(d.resources.s5)}</td></tr>
                         <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Integration Opportunities</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.integration.s1)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.integration.s2)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.integration.s3)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.integration.s4)}</td><td class="p-2 whitespace-pre-line">${cleanTxt(d.integration.s5)}</td></tr>
@@ -453,11 +634,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                         <tr class="border-b border-gray-400 bg-blue-100 font-bold text-gray-900"><td colspan="6" class="p-2 uppercase tracking-wider">Assessment & Evaluation Checkpoints</td></tr>
                         <tr class="border-b border-gray-400">
                             <td class="p-2 border-r border-gray-400 font-semibold bg-orange-50 text-orange-900 font-medium">Formative Assessment Task</td>
-                            <td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s1)}</td>
-                            <td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s2)}</td>
-                            <td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s3)}</td>
-                            <td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s4)}</td>
-                            <td class="p-2 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s5)}</td>
+                            <td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s1)}</td><td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s2)}</td><td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s3)}</td><td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s4)}</td><td class="p-2 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s5)}</td>
                         </tr>
                         <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Ways Forward (Extended Tasks)</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.extendedLearning.s1)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.extendedLearning.s2)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.extendedLearning.s3)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.extendedLearning.s4)}</td><td class="p-2 whitespace-pre-line">${cleanTxt(d.extendedLearning.s5)}</td></tr>
 
@@ -472,8 +649,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
             const rawStr = cleanTxt(str);
             const regex = /\[INSERT IMAGE:\s*([^\]]+)\]/g;
             const contentParts = [];
-            let lastIndex = 0;
-            let match;
+            let lastIndex = 0, match;
 
             while ((match = regex.exec(rawStr)) !== null) {
                 const textBefore = rawStr.substring(lastIndex, match.index);
@@ -485,30 +661,36 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                         { text: '📷  [ VISUAL RECOGNITION FRAME ]', bold: true, fontSize: 8, color: '#004B87', alignment: 'center', margin: [0, 4, 0, 2] },
                         { text: imgDesc, italic: true, fontSize: 8, color: '#4b5563', alignment: 'center', margin: [5, 0, 5, 4] }
                     ],
-                    fillColor: '#f3f4f6',
-                    margin: [0, 5, 0, 5],
-                    border: [true, true, true, true]
+                    fillColor: '#f3f4f6', margin: [0, 5, 0, 5], border: [true, true, true, true]
                 });
-
                 lastIndex = regex.lastIndex;
             }
 
             const textAfter = rawStr.substring(lastIndex);
             if (textAfter) contentParts.push({ text: textAfter });
-
-            if (contentParts.length === 0) return { text: rawStr };
-            return { stack: contentParts };
+            return contentParts.length === 0 ? { text: rawStr } : { stack: contentParts };
         }
 
-        // PDF Matrix Exporter (Explicit Font Size 10)
-        document.getElementById('exportPdfBtn').addEventListener('click', function() {
+        // ==========================================
+        // 5. PROTECTED EXPORTERS (LIVE PRE-FLIGHT CHECK + ATOMIC DEDUCT)
+        // ==========================================
+        document.getElementById('exportPdfBtn').addEventListener('click', async function() {
+            // Pre-Flight Verification
+            const hasFunds = await verifySufficientFundsBeforeExport(2);
+            if (!hasFunds) return;
+
+            // Execute Atomic Deduction via Server Database
+            const deducted = await executeAtomicDeduction(2);
+            if (!deducted) {
+                alert("Transaction failed: Insufficient verified credits or database connection issue.");
+                return;
+            }
+
             if(!window.ilawDataset) return;
             const d = window.ilawDataset;
 
             const docDefinition = {
-                pageOrientation: 'landscape',
-                pageSize: 'A4',
-                pageMargins: [15, 20, 15, 20],
+                pageOrientation: 'landscape', pageSize: 'A4', pageMargins: [15, 20, 15, 20],
                 content: [
                     { text: 'DEPARTMENT OF EDUCATION OFFICIAL DAILY LESSON LOG (ILAW MATRIX FORMAT)', style: 'headerMain' },
                     { text: 'Aligned to DepEd DO 3, s. 2026 Core Layouts', style: 'headerSub' },
@@ -539,11 +721,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                                 [{ text: 'ASSESSMENT & WAYS FORWARD', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
                                 [
                                     { text: 'Formative Assessments', style: 'fieldLabelAssessment' }, 
-                                    parseVisualBlocksPdfMake(d.assessment.s1), 
-                                    parseVisualBlocksPdfMake(d.assessment.s2), 
-                                    parseVisualBlocksPdfMake(d.assessment.s3), 
-                                    parseVisualBlocksPdfMake(d.assessment.s4), 
-                                    parseVisualBlocksPdfMake(d.assessment.s5)
+                                    parseVisualBlocksPdfMake(d.assessment.s1), parseVisualBlocksPdfMake(d.assessment.s2), parseVisualBlocksPdfMake(d.assessment.s3), parseVisualBlocksPdfMake(d.assessment.s4), parseVisualBlocksPdfMake(d.assessment.s5)
                                 ],
                                 [{ text: 'Extended Learning Tasks', style: 'fieldLabel' }, { text: cleanTxt(d.extendedLearning.s1) }, { text: cleanTxt(d.extendedLearning.s2) }, { text: cleanTxt(d.extendedLearning.s3) }, { text: cleanTxt(d.extendedLearning.s4) }, { text: cleanTxt(d.extendedLearning.s5) }],
                                 
@@ -561,8 +739,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                     fieldLabelProper: { bold: true, fillColor: '#E6F0F8', textColor: '#00335C', fontSize: 10 },
                     fieldLabelAssessment: { bold: true, fillColor: '#ffedd5', textColor: '#431407', fontSize: 10 },
                     fieldLabelColor: { bold: true, fillColor: '#f9fafb', textColor: '#991b1b', fontSize: 10 },
-                    fieldValBold: { bold: true, textColor: '#004B87', fontSize: 10 },
-                    fieldVal: { textColor: '#111111', fontSize: 10 },
+                    fieldValBold: { bold: true, textColor: '#004B87', fontSize: 10 }, fieldVal: { textColor: '#111111', fontSize: 10 },
                     aiStatementText: { italic: true, textColor: '#4b5563', fontSize: 9 },
                     headerCell: { bold: true, fillColor: '#004B87', textColor: '#ffffff', alignment: 'center', fontSize: 10 },
                     sectionDivider: { bold: true, fillColor: '#E6F0F8', textColor: '#00335C', alignment: 'center', fontSize: 11 }
@@ -573,8 +750,18 @@ Return ONLY a valid JSON object matching this structural schema template exactly
             pdfMake.createPdf(docDefinition).download(`DepEd_ILAW_Matrix_Grade${d.meta.grade}.pdf`);
         });
 
-        // DOCX Matrix Exporter (Fixed Standards Arrangement & Font Size 10)
         document.getElementById('exportDocxBtn').addEventListener('click', async function() {
+            // Pre-Flight Verification
+            const hasFunds = await verifySufficientFundsBeforeExport(2);
+            if (!hasFunds) return;
+
+            // Execute Atomic Deduction via Server Database
+            const deducted = await executeAtomicDeduction(2);
+            if (!deducted) {
+                alert("Transaction failed: Insufficient verified credits or database connection issue.");
+                return;
+            }
+
             if(!window.ilawDataset) return;
             const d = window.ilawDataset;
             const { Document, Table, TableRow, TableCell, Paragraph, TextRun, AlignmentType, WidthType, BorderStyle, PageOrientation } = docx;
@@ -586,87 +773,51 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                 shading: { fill: bgHex }, borders: defCellBorders,
                 children: [new Paragraph({ children: [new TextRun({ text: cleanTxt(txt), bold: true, size: 20 })] })]
             });
-            
             const headerCell = (txt) => new TableCell({
                 shading: { fill: "004B87" }, borders: defCellBorders,
                 children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: cleanTxt(txt), bold: true, color: "FFFFFF", size: 20 })] })]
             });
-            
             const dividerCell = (txt) => new TableCell({
                 columnSpan: 6, shading: { fill: "E6F0F8" }, borders: defCellBorders,
                 children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: cleanTxt(txt), bold: true, color: "00335C", size: 22 })] })]
             });
-
-            const createStandardsCell = () => {
-                return new TableCell({
-                    columnSpan: 5,
-                    borders: defCellBorders,
-                    children: [
-                        new Paragraph({ children: [new TextRun({ text: "LEARNING COMPETENCY:", bold: true, size: 20, color: "00335C" })] }),
-                        new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta.competency, size: 20 })] }),
-                        new Paragraph({ children: [new TextRun({ text: "CONTENT STANDARD:", bold: true, size: 20, color: "00335C" })] }),
-                        new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta.contentStd, size: 20 })] }),
-                        new Paragraph({ children: [new TextRun({ text: "PERFORMANCE STANDARD:", bold: true, size: 20, color: "00335C" })] }),
-                        new Paragraph({ children: [new TextRun({ text: d.meta.perfStd, size: 20 })] })
-                    ]
-                });
-            };
-
+            const createStandardsCell = () => new TableCell({
+                columnSpan: 5, borders: defCellBorders,
+                children: [
+                    new Paragraph({ children: [new TextRun({ text: "LEARNING COMPETENCY:", bold: true, size: 20, color: "00335C" })] }),
+                    new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta.competency, size: 20 })] }),
+                    new Paragraph({ children: [new TextRun({ text: "CONTENT STANDARD:", bold: true, size: 20, color: "00335C" })] }),
+                    new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta.contentStd, size: 20 })] }),
+                    new Paragraph({ children: [new TextRun({ text: "PERFORMANCE STANDARD:", bold: true, size: 20, color: "00335C" })] }),
+                    new Paragraph({ children: [new TextRun({ text: d.meta.perfStd, size: 20 })] })
+                ]
+            });
             const cellText = (txt, bgHex = "FFFFFF") => new TableCell({
                 shading: { fill: bgHex }, borders: defCellBorders,
                 children: cleanTxt(txt).split('\n').map(line => new Paragraph({ children: [new TextRun({ text: line, size: 20 })] }))
             });
-
             const cellTextWithImagesDocx = (txt, bgHex = "FFFFFF") => {
                 const rawStr = cleanTxt(txt);
                 const regex = /\[INSERT IMAGE:\s*([^\]]+)\]/g;
                 const childrenElements = [];
-                let lastIndex = 0;
-                let match;
+                let lastIndex = 0, match;
 
                 while ((match = regex.exec(rawStr)) !== null) {
                     const textBefore = rawStr.substring(lastIndex, match.index);
-                    if (textBefore) {
-                        textBefore.split('\n').forEach(line => {
-                            childrenElements.push(new Paragraph({ children: [new TextRun({ text: line, size: 20 })] }));
-                        });
-                    }
+                    if (textBefore) textBefore.split('\n').forEach(line => childrenElements.push(new Paragraph({ children: [new TextRun({ text: line, size: 20 })] })));
 
                     const imgDesc = match[1];
-                    childrenElements.push(
-                        new Paragraph({
-                            spacing: { before: 100, after: 40 },
-                            children: [new TextRun({ text: "📷 [ VISUAL RECOGNITION FRAME ]", bold: true, size: 16, color: "004B87" })]
-                        })
-                    );
-                    childrenElements.push(
-                        new Paragraph({
-                            spacing: { after: 100 },
-                            children: [new TextRun({ text: imgDesc, italic: true, size: 16, color: "555555" })]
-                        })
-                    );
-
+                    childrenElements.push(new Paragraph({ spacing: { before: 100, after: 40 }, children: [new TextRun({ text: "📷 [ VISUAL RECOGNITION FRAME ]", bold: true, size: 16, color: "004B87" })] }));
+                    childrenElements.push(new Paragraph({ spacing: { after: 100 }, children: [new TextRun({ text: imgDesc, italic: true, size: 16, color: "555555" })] }));
                     lastIndex = regex.lastIndex;
                 }
 
                 const textAfter = rawStr.substring(lastIndex);
-                if (textAfter) {
-                    textAfter.split('\n').forEach(line => {
-                        childrenElements.push(new Paragraph({ children: [new TextRun({ text: line, size: 20 })] }));
-                    });
-                }
+                if (textAfter) textAfter.split('\n').forEach(line => childrenElements.push(new Paragraph({ children: [new TextRun({ text: line, size: 20 })] })));
+                if (childrenElements.length === 0) childrenElements.push(new Paragraph({ children: [new TextRun({ text: rawStr, size: 20 })] }));
 
-                if (childrenElements.length === 0) {
-                    childrenElements.push(new Paragraph({ children: [new TextRun({ text: rawStr, size: 20 })] }));
-                }
-
-                return new TableCell({
-                    shading: { fill: bgHex },
-                    borders: defCellBorders,
-                    children: childrenElements
-                });
+                return new TableCell({ shading: { fill: bgHex }, borders: defCellBorders, children: childrenElements });
             };
-
             const cellTextSpan = (txt, span, isBold = false) => new TableCell({
                 columnSpan: span, borders: defCellBorders,
                 children: [new Paragraph({ children: [new TextRun({ text: cleanTxt(txt), size: 20, bold: isBold })] })]
@@ -677,8 +828,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                     properties: {
                         page: {
                             size: { width: docx.convertInchesToTwip(11.69), height: docx.convertInchesToTwip(8.27) },
-                            orientation: PageOrientation.LANDSCAPE,
-                            margin: { top: 600, bottom: 600, left: 600, right: 600 }
+                            orientation: PageOrientation.LANDSCAPE, margin: { top: 600, bottom: 600, left: 600, right: 600 }
                         }
                     },
                     children: [

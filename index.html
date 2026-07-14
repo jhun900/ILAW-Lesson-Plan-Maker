@@ -235,27 +235,45 @@
         const MISTRAL_API_KEY = "YxzTi7XRyqOtSX1rn2JPSbLd42nzMCKj";
         const MISTRAL_MODEL = "mistral-small-latest";
 
-        const { createClient } = window.supabase;
-        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
+        // Define supabase client globally to prevent TDZ/namespace issues
+        let supabaseClient = null;
         let currentUser = null;
         let userCredits = 0;
         let realtimeSubscription = null;
+
+        // Gracefully initialize Supabase client to prevent initialization errors if CDN is blocked
+        function initSupabase() {
+            try {
+                if (window.supabase && typeof window.supabase.createClient === 'function') {
+                    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    console.log("Supabase safely initialized.");
+                } else {
+                    console.warn("Supabase library not found on load. Running in local-only fallback mode.");
+                }
+            } catch (err) {
+                console.error("Supabase initiation error:", err);
+            }
+        }
 
         // ==========================================
         // 2. MULTI-LAYERED CREDIT PROTECTION PROTOCOL
         // ==========================================
         async function fetchTrueBalanceFromServer(userId) {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('credits')
-                .eq('id', userId)
-                .single();
-                
-            if (!error && data) {
-                userCredits = data.credits;
-                updateCreditDisplay();
-                return data.credits;
+            if (!supabaseClient) return 0;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('profiles')
+                    .select('credits')
+                    .eq('id', userId)
+                    .single();
+                    
+                if (!error && data) {
+                    userCredits = data.credits;
+                    updateCreditDisplay();
+                    return data.credits;
+                }
+            } catch (err) {
+                console.error("Error fetching balance:", err);
             }
             return 0;
         }
@@ -263,6 +281,10 @@
         async function verifySufficientFundsBeforeExport(requiredAmount = 2) {
             if (!currentUser) {
                 alert("Please sign in with Google to export documents.");
+                return false;
+            }
+            if (!supabaseClient) {
+                alert("Database is currently offline. Export is unavailable.");
                 return false;
             }
             const liveBalance = await fetchTrueBalanceFromServer(currentUser.id);
@@ -274,54 +296,63 @@
         }
 
         async function executeAtomicDeduction(amount = 2) {
-            if (!currentUser) return false;
+            if (!currentUser || !supabaseClient) return false;
             
-            const { data: success, error } = await supabase.rpc('deduct_user_credits', {
-                deduct_amount: amount
-            });
+            try {
+                const { data: success, error } = await supabaseClient.rpc('deduct_user_credits', {
+                    deduct_amount: amount
+                });
 
-            if (error) {
-                console.warn("RPC Failed, executing strict fallback verification...", error);
-                const liveBalance = await fetchTrueBalanceFromServer(currentUser.id);
-                if (liveBalance >= amount) {
-                    const { error: updateError } = await supabase
-                        .from('profiles')
-                        .update({ credits: liveBalance - amount })
-                        .eq('id', currentUser.id);
-                    if (!updateError) {
-                        userCredits = liveBalance - amount;
-                        updateCreditDisplay();
-                        return true;
+                if (error) {
+                    console.warn("RPC Failed, executing strict fallback verification...", error);
+                    const liveBalance = await fetchTrueBalanceFromServer(currentUser.id);
+                    if (liveBalance >= amount) {
+                        const { error: updateError } = await supabaseClient
+                            .from('profiles')
+                            .update({ credits: liveBalance - amount })
+                            .eq('id', currentUser.id);
+                        if (!updateError) {
+                            userCredits = liveBalance - amount;
+                            updateCreditDisplay();
+                            return true;
+                        }
                     }
+                    return false;
                 }
-                return false;
-            }
 
-            if (success) {
-                await fetchTrueBalanceFromServer(currentUser.id);
-                return true;
+                if (success) {
+                    await fetchTrueBalanceFromServer(currentUser.id);
+                    return true;
+                }
+            } catch (err) {
+                console.error("Deduction validation failure:", err);
             }
             return false;
         }
 
         function setupRealtimeCreditSubscription(userId) {
-            if (realtimeSubscription) supabase.removeChannel(realtimeSubscription);
+            if (!supabaseClient) return;
+            try {
+                if (realtimeSubscription) supabaseClient.removeChannel(realtimeSubscription);
 
-            realtimeSubscription = supabase
-                .channel('secure-profile-sync')
-                .on(
-                    'postgres_changes',
-                    { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
-                    (payload) => {
-                        const newCredits = payload.new.credits;
-                        if (newCredits > userCredits) {
-                            alert(`🎉 Payment Verified! Your webhook added ${newCredits - userCredits} credits to your account!`);
+                realtimeSubscription = supabaseClient
+                    .channel('secure-profile-sync')
+                    .on(
+                        'postgres_changes',
+                        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+                        (payload) => {
+                            const newCredits = payload.new.credits;
+                            if (newCredits > userCredits) {
+                                alert(`🎉 Payment Verified! Your webhook added ${newCredits - userCredits} credits to your account!`);
+                            }
+                            userCredits = newCredits;
+                            updateCreditDisplay();
                         }
-                        userCredits = newCredits;
-                        updateCreditDisplay();
-                    }
-                )
-                .subscribe();
+                    )
+                    .subscribe();
+            } catch (err) {
+                console.error("Realtime subscription failed:", err);
+            }
         }
 
         function updateCreditDisplay() {
@@ -333,10 +364,11 @@
         // 3. AUTHENTICATION & INITIALIZATION
         // ==========================================
         async function checkAuth() {
+            if (!supabaseClient) return;
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session } } = await supabaseClient.auth.getSession();
                 handleSession(session);
-                supabase.auth.onAuthStateChange((_event, session) => handleSession(session));
+                supabaseClient.auth.onAuthStateChange((_event, session) => handleSession(session));
             } catch (err) {
                 console.error("Auth initialization error:", err);
             }
@@ -353,17 +385,30 @@
                 if (loggedOutView) loggedOutView.classList.add('hidden');
                 if (loggedInView) loggedInView.classList.remove('hidden');
                 
-                let { data: profile } = await supabase.from('profiles').select('credits').eq('id', currentUser.id).single();
-                if (!profile) {
-                    await supabase.from('profiles').insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }]);
-                    alert("Welcome! You've received 5 Free Bonus Credits for signing in!");
+                if (supabaseClient) {
+                    try {
+                        let { data: profile } = await supabaseClient.from('profiles').select('credits').eq('id', currentUser.id).single();
+                        if (!profile) {
+                            await supabaseClient.from('profiles').insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }]);
+                            alert("Welcome! You've received 5 Free Bonus Credits for signing in!");
+                        }
+                        await fetchTrueBalanceFromServer(currentUser.id);
+                        setupRealtimeCreditSubscription(currentUser.id);
+                    } catch (err) {
+                        console.error("Database sync error during sign-in:", err);
+                    }
                 }
-                await fetchTrueBalanceFromServer(currentUser.id);
-                setupRealtimeCreditSubscription(currentUser.id);
             } else {
                 currentUser = null;
                 userCredits = 0;
-                if (realtimeSubscription) { supabase.removeChannel(realtimeSubscription); realtimeSubscription = null; }
+                if (realtimeSubscription && supabaseClient) { 
+                    try {
+                        supabaseClient.removeChannel(realtimeSubscription); 
+                    } catch (err) {
+                        console.error(err);
+                    }
+                    realtimeSubscription = null; 
+                }
                 if (loggedOutView) loggedOutView.classList.remove('hidden');
                 if (loggedInView) loggedInView.classList.add('hidden');
             }
@@ -524,6 +569,8 @@
         // 5. ENCAPSULATED DOM INITIALIZATION (GUARANTEES BUTTONS WORK!)
         // ==========================================
         function initApp() {
+            // Safely setup Supabase & restore session mapping without blocking DOM scripts
+            initSupabase();
             checkAuth();
             
             // Setup Subject Dropdown
@@ -561,8 +608,12 @@
             const googleBtn = document.getElementById('googleSignInBtn');
             if (googleBtn) {
                 googleBtn.addEventListener('click', async () => {
+                    if (!supabaseClient) {
+                        alert("Database configuration offline. Unable to process SSO logs. Please check your internet connection.");
+                        return;
+                    }
                     try {
-                        const { error } = await supabase.auth.signInWithOAuth({ 
+                        const { error } = await supabaseClient.auth.signInWithOAuth({ 
                             provider: 'google', 
                             options: { 
                                 redirectTo: window.location.origin,
@@ -583,7 +634,11 @@
             // Setup Sign Out Button
             const signOutBtn = document.getElementById('signOutBtn');
             if (signOutBtn) {
-                signOutBtn.addEventListener('click', async () => await supabase.auth.signOut());
+                signOutBtn.addEventListener('click', async () => {
+                    if (supabaseClient) {
+                        await supabaseClient.auth.signOut();
+                    }
+                });
             }
 
             // Setup Generate Lesson Plan Button
@@ -649,7 +704,7 @@ Depending on the specific Learning Area (${subject}), choose and design at least
 - Composition
 
 PICTURE GENERATION AND RECOGNITION RULE:
-Whenever a test item or evaluation parameter benefits significantly from visual references, graphics, objects, diagrams, or identification shapes, you MUST embed a precise image instruction using this exact syntax block inside the string: \`[INSERT IMAGE: Explicit description of what the picture should illustrate]\`. Do not write abstract descriptions outside this block.
+Whenever a test item or evaluation parameter benefits significantly from visual references, graphics, objects, diagrams, or identification shapes, you MUST embed a precise image instruction using this exact syntax block inside the string: \`\`. Do not write abstract descriptions outside this block.
 
 STRICT FORMATTING RULE FOR ASSESSMENT:
 1. Do not provide abstract paragraph descriptions or bulleted advice. You MUST write out the actual text of the assessment questions/prompts that a teacher can directly copy and use for evaluation.
@@ -669,7 +724,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
   "resources": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
   "integration": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
   "assessment": { 
-    "s1": "1. Multiple Choice\nPanuto: Tukuyin ang bagay sa larawan.\n[INSERT IMAGE: A clear wooden table with a red book on top]\nAlin ito?\nA. papel\nB. libro\nC. lapis\nD. upuan\nSagot: B. libro\n\nSupport Lifeline: ...\nAccommodations: ...", 
+    "s1": "1. Multiple Choice\nPanuto: Tukuyin ang bagay sa larawan.\nhttps://encrypted-tbn2.gstatic.com/licensed-image?q=tbn:ANd9GcT9mmPo2S5rjsQiKgtjJhOxXYx_LwOmcu0IvnQw3y6c3o60MLQpFgxGY4wTp0e-RoxQhuVQNPha44hWrEI\nAlin ito?\nA. papel\nB. libro\nC. lapis\nD. upuan\nSagot: B. libro\n\nSupport Lifeline: ...\nAccommodations: ...", 
     "s2": "...", "s3": "...", "s4": "...", "s5": "..." 
   },
   "extendedLearning": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },

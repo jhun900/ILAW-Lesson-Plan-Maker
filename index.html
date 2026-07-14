@@ -234,10 +234,6 @@
         const MISTRAL_API_KEY = "YxzTi7XRyqOtSX1rn2JPSbLd42nzMCKj";
         const MISTRAL_MODEL = "mistral-small-latest";
 
-        // IMPORTANT: UPDATE THIS TO YOUR ACTUAL PAYMENT BACKEND ENDPOINT
-        // (e.g., https://your-vercel-app.vercel.app/api/checkout OR your absolute Supabase Edge Function URL)
-        const BACKEND_CHECKOUT_API_URL = "https://knfpnuofjxihwutuzbnd.supabase.co/functions/v1/paymongo-webhook";
-
         // Define supabase client globally to prevent TDZ/namespace issues
         let supabaseClient = null;
         let currentUser = null;
@@ -364,7 +360,7 @@
         }
 
         // ==========================================
-        // 3. AUTHENTICATION & PAYMENT LOGIC
+        // 3. AUTHENTICATION & INITIALIZATION
         // ==========================================
         async function checkAuth() {
             if (!supabaseClient) return;
@@ -428,54 +424,24 @@
 
         async function initiatePaymongoCheckout(amountPhp, creditsToAdd) {
             if (!currentUser) return alert("Please sign in first before topping up credits.");
-            
             try {
-                // Determine authorization token: Use active session token if signed in, otherwise default to Anon Key.
-                // This ensures external backends and Supabase Edge Functions both receive valid auth variables.
-                let authToken = SUPABASE_ANON_KEY;
-                if (supabaseClient) {
-                    const { data } = await supabaseClient.auth.getSession();
-                    if (data?.session?.access_token) {
-                        authToken = data.session.access_token;
-                    }
-                }
-
-                // Using standard fetch allows you to map to ANY backend provider easily (Vercel, Render, Node.js, Edge Functions).
-                const response = await fetch(BACKEND_CHECKOUT_API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify({ 
-                        userId: currentUser.id, 
-                        email: currentUser.email, 
-                        amountPhp: amountPhp, 
-                        credits: creditsToAdd, 
-                        returnUrl: window.location.href 
-                    })
+                // Using Supabase client automatically handles Edge Function auth and CORS Preflight properly
+                const { data, error } = await supabaseClient.functions.invoke('paymongo-webhook', {
+                    body: { userId: currentUser.id, email: currentUser.email, amountPhp: amountPhp, credits: creditsToAdd, returnUrl: window.location.href }
                 });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Server status ${response.status}: ${errorText}`);
-                }
+                if (error) throw error;
 
-                const data = await response.json();
-
-                if (data && data.checkoutUrl) {
-                    window.location.href = data.checkoutUrl;
-                } else {
-                    alert("Payment initiation failed: " + (data.error || "No checkout URL returned from server."));
-                }
+                if (data && data.checkoutUrl) window.location.href = data.checkoutUrl;
+                else alert("Unable to initiate payment session: " + (data.error || "Please check endpoint URL configuration."));
             } catch (err) {
-                console.error("Payment Connection Error:", err);
-                alert(`Error connecting to payment server.\n\nPlease verify:\n1. BACKEND_CHECKOUT_API_URL at the top of the code is configured correctly.\n2. Your server handles preflight CORS (Cross-Origin Resource Sharing) requests.\n3. Your server is actively running.\n\nTechnical Details: ${err.message}`);
+                console.error(err);
+                alert("Error connecting to payment server. Ensure your backend checkout endpoint is running on Supabase Edge Functions.");
             }
         }
 
         // ==========================================
-        // 4. AI LOGIC & EXPORT HANDLERS
+        // 4. SUBJECT DB & AI LOGIC
         // ==========================================
         const cleanTxt = (t) => {
             if (!t) return 'N/A';
@@ -587,6 +553,7 @@
         // 5. ENCAPSULATED DOM INITIALIZATION
         // ==========================================
         function initApp() {
+            // Safely setup Supabase & restore session mapping without blocking DOM scripts
             initSupabase();
             checkAuth();
             
@@ -602,8 +569,12 @@
                         const { error } = await supabaseClient.auth.signInWithOAuth({ 
                             provider: 'google', 
                             options: { 
+                                // FIX: Dynamically handles both development root domains and GitHub Pages subfolders safely
                                 redirectTo: window.location.origin + window.location.pathname,
-                                queryParams: { prompt: 'select_account' }
+                                queryParams: {
+                                    // FIX: Removed client_id (Supabase processes verification securely from its server settings)
+                                    prompt: 'select_account'
+                                }
                             } 
                         });
                         if (error) throw error;

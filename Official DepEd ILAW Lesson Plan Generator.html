@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DepEd ILAW Lesson Plan Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <script src="https://unpkg.com/docx@7.1.0/build/index.js"></script>
+    <script src="https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        deped: '#004B87',
+                        depedLight: '#E6F0F8',
+                        depedDark: '#00335C'
+                    },
+                    fontFamily: {
+                        sans: ['Segoe UI', 'Roboto', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .form-input {
+                @apply w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-deped focus:border-transparent text-sm;
+            }
+            .required {
+                @apply text-red-500 ml-1;
+            }
+            .section-title {
+                @apply text-xl font-semibold text-depedDark border-b border-gray-200 pb-2 mb-4 flex items-center;
+            }
+            .btn-primary {
+                @apply bg-deped hover:bg-depedDark text-white px-5 py-2 rounded transition-colors text-sm font-semibold shadow-sm;
+            }
+            .btn-secondary {
+                @apply bg-gray-200 hover:bg-gray-300 text-gray-800 px-5 py-2 rounded transition-colors text-sm font-semibold shadow-sm;
+            }
+            .loading {
+                @apply opacity-70 pointer-events-none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-6 max-w-5xl">
+        <header class="bg-white rounded-lg shadow p-5 mb-6 border-l-4 border-deped">
+            <h1 class="text-2xl md:text-3xl font-bold text-depedDark flex items-center gap-3">
+                <i class="fa fa-book"></i> DepEd ILAW Lesson Plan Generator
+            </h1>
+            <p class="text-gray-600 mt-1 text-sm">Official ILAW Matrix Layout | Aligned to DO 3, s. 2026</p>
+        </header>
+
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <section class="mb-8">
+                <h2 class="section-title">
+                    <i class="fa fa-sliders mr-2"></i> 1. Lesson Parameters
+                </h2>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Grade Level <span class="required">*</span></label>
+                        <select id="grade" class="form-input" required>
+                            <option value="" selected>Select Grade</option>
+                            <optgroup label="Kinder">
+                                <option value="K">Kinder</option>
+                            </optgroup>
+                            <optgroup label="Grades 1-10">
+                                <option value="1">Grade 1</option>
+                                <option value="2">Grade 2</option>
+                                <option value="3">Grade 3</option>
+                                <option value="4">Grade 4</option>
+                                <option value="5">Grade 5</option>
+                                <option value="6">Grade 6</option>
+                                <option value="7">Grade 7</option>
+                                <option value="8">Grade 8</option>
+                                <option value="9">Grade 9</option>
+                                <option value="10">Grade 10</option>
+                            </optgroup>
+                            <optgroup label="Senior High School">
+                                <option value="11">Grade 11</option>
+                                <option value="12">Grade 12</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Learning Area / Subject <span class="required">*</span></label>
+                        <select id="subject" class="form-input" required>
+                            <option value="" selected>Select Subject</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Hours per Session</label>
+                        <select id="hoursPerSession" class="form-input">
+                            <option value="" selected>Select Duration</option>
+                            <option value="30 Minutes">30 Minutes</option>
+                            <option value="40 Minutes">40 Minutes</option>
+                            <option value="50 Minutes">50 Minutes</option>
+                            <option value="60 Minutes">60 Minutes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Number of Sessions</label>
+                        <select id="numSessions" class="form-input">
+                            <option value="" selected>Select Count</option>
+                            <option value="1">1 Session</option>
+                            <option value="2">2 Sessions</option>
+                            <option value="3">3 Sessions</option>
+                            <option value="4">4 Sessions</option>
+                            <option value="5">5 Sessions</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Instructional Language <span class="required">*</span></label>
+                        <select id="instructionalLang" class="form-input" required>
+                            <option value="" selected>Select Language</option>
+                            <option value="English">English</option>
+                            <option value="Filipino">Filipino</option>
+                            <option value="Mother Tongue">Mother Tongue</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Term / Week</label>
+                        <input type="text" id="termWeek" class="form-input" placeholder="e.g., Quarter 1, Week 3">
+                    </div>
+                </div>
+            </section>
+
+            <section class="mb-8">
+                <h2 class="section-title">
+                    <i class="fa fa-bullseye mr-2"></i> 2. Competencies & Curriculum Standards <span class="required">*</span>
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Target Learning Competency <span class="required">*</span></label>
+                        <textarea id="competency" rows="3" class="form-input" placeholder="Paste the official learning competency here..." required></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Content Standard</label>
+                        <textarea id="contentStandard" rows="2" class="form-input" placeholder="Enter official Content Standard details..."></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Performance Standard</label>
+                        <textarea id="performanceStandard" rows="2" class="form-input" placeholder="Enter official Performance Standard details..."></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <div class="flex flex-wrap gap-3 justify-end">
+                <button type="button" id="generateBtn" class="btn-primary flex items-center gap-2">
+                    <i class="fa fa-magic"></i> Generate ILAW Lesson Plan
+                </button>
+                <button type="button" id="exportPdfBtn" class="btn-secondary hidden flex items-center gap-2 !bg-red-600 hover:!bg-red-700 !text-white">
+                    <i class="fa fa-file-pdf-o"></i> Export Official PDF
+                </button>
+                <button type="button" id="exportDocxBtn" class="btn-secondary hidden flex items-center gap-2 !bg-blue-600 hover:!bg-blue-700 !text-white">
+                    <i class="fa fa-file-word-o"></i> Export Official DOCX
+                </button>
+            </div>
+        </div>
+
+        <div id="outputContainer" class="bg-white rounded-lg shadow p-6 hidden">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-xl font-bold text-depedDark">Generated Official Matrix Preview</h2>
+                <span class="text-xs bg-green-100 text-green-800 font-semibold px-2 py-1 rounded">DO 3, s. 2026 Aligned</span>
+            </div>
+            <div id="lessonPlanContent" class="overflow-x-auto text-xs text-gray-800">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const subjectsDB = {
+            "K": ["Mother Tongue", "Oral Language", "Phonological Awareness", "Beginning Reading", "Mathematics", "Makabansa"],
+            "1": ["Mother Tongue", "Filipino", "English", "Mathematics", "Araling Panlipunan", "MAPEH", "Edukasyon sa Pagpapakatao"],
+            "2": ["Mother Tongue", "Filipino", "English", "Mathematics", "Araling Panlipunan", "MAPEH", "Edukasyon sa Pagpapakatao"],
+            "3": ["Mother Tongue", "Filipino", "English", "Mathematics", "Araling Panlipunan", "Science", "MAPEH", "Edukasyon sa Pagpapakatao"],
+            "4": ["Filipino", "English", "Mathematics", "Science", "Araling Panlipunan", "Edukasyon sa Pagpapakatao", "MAPEH", "Technology and Livelihood Education"],
+            "5": ["Filipino", "English", "Mathematics", "Science", "Araling Panlipunan", "Edukasyon sa Pagpapakatao", "MAPEH", "Technology and Livelihood Education"],
+            "6": ["Filipino", "English", "Mathematics", "Science", "Araling Panlipunan", "Edukasyon sa Pagpapakatao", "MAPEH", "Technology and Livelihood Education"],
+            "7": ["Filipino", "English", "Mathematics", "Science", "Araling Panlipunan", "Edukasyon sa Pagpapakatao", "MAPEH", "Technology and Livelihood Education"],
+            "8": ["Filipino", "English", "Mathematics", "Science", "Araling Panlipunan", "Edukasyon sa Pagpapakatao", "MAPEH", "Technology and Livelihood Education"],
+            "9": ["Filipino", "English", "Mathematics", "Science", "Araling Panlipunan", "Edukasyon sa Pagpapakatao", "MAPEH", "Technology and Livelihood Education"],
+            "10": ["Filipino", "English", "Mathematics", "Science", "Araling Panlipunan", "Edukasyon sa Pagpapakatao", "MAPEH", "Technology and Livelihood Education"],
+            "11": ["Oral Communication", "Reading and Writing", "Komunikasyon at Pananaliksik", "21st Century Literature", "Personal Development"],
+            "12": ["Inquiries, Investigations and Immersion", "Work Immersion", "Specialized Subjects"]
+        };
+
+        const MISTRAL_API_KEY = "YxzTi7XRyqOtSX1rn2JPSbLd42nzMCKj";
+        const MISTRAL_MODEL = "mistral-small-latest";
+
+        function initSubjectDropdown() {
+            const gradeSelect = document.getElementById('grade');
+            const subjectSelect = document.getElementById('subject');
+            const langSelect = document.getElementById('instructionalLang');
+            
+            gradeSelect.addEventListener('change', function() {
+                const g = this.value;
+                subjectSelect.innerHTML = '<option value="" selected>Select Subject</option>';
+                if (g && subjectsDB[g]) {
+                    subjectsDB[g].forEach(subj => {
+                        const opt = document.createElement('option');
+                        opt.value = subj;
+                        opt.textContent = subj;
+                        subjectSelect.appendChild(opt);
+                    });
+                }
+            });
+
+            subjectSelect.addEventListener('change', function() {
+                const s = this.value;
+                if (!s) return;
+                const filipinoSubjects = ["Filipino", "Makabansa", "Araling Panlipunan", "Edukasyon sa Pagpapakatao", "Komunikasyon at Pananaliksik"];
+                if (filipinoSubjects.includes(s)) {
+                    langSelect.value = "Filipino";
+                } else if (s === "Mother Tongue") {
+                    langSelect.value = "Mother Tongue";
+                } else {
+                    langSelect.value = "English";
+                }
+            });
+        }
+        
+        window.onload = initSubjectDropdown;
+
+        const cleanTxt = (t) => {
+            if (!t) return 'N/A';
+            if (typeof t === 'object') return JSON.stringify(t);
+            return String(t)
+                .replace(/[\u200B-\u200D\uFEFF]/g, "") 
+                .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "") 
+                .trim();
+        };
+
+        document.getElementById('generateBtn').addEventListener('click', async function() {
+            const grade = document.getElementById('grade').value;
+            const subject = document.getElementById('subject').value;
+            const targetLang = document.getElementById('instructionalLang').value;
+            const competency = document.getElementById('competency').value.trim();
+
+            if (!grade || !subject || !competency || !targetLang) {
+                alert('Please fill out all mandatory fields marked with an asterisk (*). All inputs remain blank by default.');
+                return;
+            }
+
+            const btn = this;
+            btn.classList.add('loading');
+            btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Organizing Curriculum Standards...';
+            document.getElementById('outputContainer').classList.add('hidden');
+
+            const prompt = `
+You are an expert DepEd Academic Curriculum Specialist. Build a structural Daily Lesson Log adhering completely to DO 3, s. 2026 ILAW Formats.
+
+CRITICAL LANGUAGE BOUNDARY RULE (ABSOLUTE MONOLINGUALISM): 
+- You MUST generate all text content values inside the JSON entirely and strictly in ${targetLang}. 
+- Do not mix or swap between languages. Avoid code-switching or Taglish completely.
+- If ${targetLang} is Filipino, everything (including lessonName, references, objectives, lessonProper guidelines, directions, questions, and choices) must be in pure Filipino. Do not use English words or phrases unless it is a specific technical term that has no equivalent.
+- If ${targetLang} is English, everything must be written in formal English. Do not use Filipino words anywhere.
+
+Input Specifications:
+- Subject Area: ${subject}
+- Grade Profile: Grade ${grade}
+- Reference Target Competency: ${competency}
+
+The response must be a single flat JSON object structure matching the blueprint keys below. Every key must map to a clean string.
+
+CRITICAL INSTRUCTION FOR "lessonProper":
+Describe the classroom activities implemented from the first part to the last part of the flow to meet the objectives.
+You MUST format this field strictly as a single text block consisting of a clearly ordered NUMBERED LIST (e.g., "1. [Activity details...] \n2. [Next activity...] \n3. [Following activity...]") across the session keys (s1 to s5). 
+Ensure the sequence applies the 7 Learning Design Principles by explicitly addressing how to:
+1. Make objectives crystal clear to learners at the onset.
+2. Guide/scaffold learners before letting them try tasks on their own.
+3. Check the state of learners' well-being, immediate understanding, and topic mastery.
+4. Connect today's new concepts back to past competencies.
+5. Encourage active collaboration among learners.
+6. Invite learners to reflect on why this topic matters to them personally.
+7. Ensure full inclusion for learners' varied abilities, learning styles, and contexts.
+
+CRITICAL INSTRUCTION FOR "assessment":
+Evaluate learning and provide immediate feedback by writing out actual, completely constructed evaluation questions or tasks matching the subject matter context. 
+
+Depending on the specific Learning Area (${subject}), choose and design at least 1 to 3 distinct types of items from the following permitted formats that fit the topic best:
+- Multiple choice question with only one answer (Must include Directions/Panuto, choices A-D, and explicit "Sagot" or "Answer")
+- True or False (Must include Directions/Panuto, specific statement, and explicit "Sagot" or "Answer")
+- Matching Type (Must include Directions/Panuto, Column A/Hanay A, Column B/Hanay B, and explicit Answer Key/Sagot)
+- Identification (Must include Directions/Panuto, sentence/prompt, and explicit "Sagot" or "Answer")
+- Fill in the Blanks (Must include Directions/Panuto, sentence with an empty blank "_______", and explicit "Sagot" or "Answer")
+- Explanation / Short Explanation
+- Essay
+- Composition
+
+PICTURE GENERATION AND RECOGNITION RULE:
+Whenever a test item or evaluation parameter benefits significantly from visual references, graphics, objects, diagrams, or identification shapes, you MUST embed a precise image instruction using this exact syntax block inside the string: \`[INSERT IMAGE: Explicit description of what the picture should illustrate]\`. Do not write abstract descriptions outside this block.
+
+STRICT FORMATTING RULE FOR ASSESSMENT:
+1. Do not provide abstract paragraph descriptions or bulleted advice. You MUST write out the actual text of the assessment questions/prompts that a teacher can directly copy and use for evaluation.
+2. Use the official instructional language (${targetLang}) for all directions, item contents, choices, and answers.
+3. Conclude each session block text with these mandatory sections:
+   - Support Lifeline: [How learners can ask for guidance or support during the assessment]
+   - Accommodations: [Specific modification tools applied to safeguard varied learner context and abilities]
+
+Return ONLY a valid JSON object matching this structural schema template exactly. Do not wrap in markdown fences:
+{
+  "lessonName": "Descriptive title of the lesson block",
+  "references": "Textbook codes, page ranges, and official DepEd portals used",
+  "objectives": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
+  "learnerContext": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
+  "preLesson": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
+  "lessonProper": { "s1": "1. ... \n2. ...", "s2": "1. ... \n2. ...", "s3": "1. ... \n2. ...", "s4": "1. ... \n2. ...", "s5": "1. ... \n2. ..." },
+  "resources": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
+  "integration": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
+  "assessment": { 
+    "s1": "1. Multiple Choice\nPanuto: Tukuyin ang bagay sa larawan.\n[INSERT IMAGE: A clear wooden table with a red book on top]\nAlin ito?\nA. papel\nB. libro\nC. lapis\nD. upuan\nSagot: B. libro\n\nSupport Lifeline: ...\nAccommodations: ...", 
+    "s2": "...", "s3": "...", "s4": "...", "s5": "..." 
+  },
+  "extendedLearning": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
+  "reflections": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" }
+}`;
+
+            try {
+                const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${MISTRAL_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: MISTRAL_MODEL,
+                        response_format: { type: "json_object" },
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: 0.15
+                    })
+                });
+
+                const data = await response.json();
+                if (!response.ok) throw new Error('API Execution Exception');
+
+                const rawJson = JSON.parse(data.choices[0].message.content.trim());
+                window.ilawDataset = {
+                    ...rawJson,
+                    meta: {
+                        grade: grade,
+                        subject: subject,
+                        termWeek: document.getElementById('termWeek').value || 'N/A',
+                        hours: document.getElementById('hoursPerSession').value || 'N/A',
+                        sessions: document.getElementById('numSessions').value || '5',
+                        competency: competency,
+                        contentStd: document.getElementById('contentStandard').value || 'Compliant with DepEd Core Matrix Targets.',
+                        perfStd: document.getElementById('performanceStandard').value || 'Compliant with DepEd Core Performance Guidelines.',
+                        aiStatement: "This lesson matrix was systematically conceptualized with AI assistance for objective structure mapping; verified, contextualized, and authenticated by the teacher. (DO 3, s. 2026 Annex A)."
+                    }
+                };
+
+                renderHtmlPreview(window.ilawDataset);
+                document.getElementById('outputContainer').classList.remove('hidden');
+                document.getElementById('exportPdfBtn').classList.remove('hidden');
+                document.getElementById('exportDocxBtn').classList.remove('hidden');
+
+            } catch (error) {
+                alert('Generation Fault: ' + error.message);
+            } finally {
+                btn.classList.remove('loading');
+                btn.innerHTML = '<i class="fa fa-magic"></i> Generate ILAW Lesson Plan';
+            }
+        });
+
+        function parseVisualBlocksHtml(str) {
+            const cleanStr = cleanTxt(str);
+            const regex = /\[INSERT IMAGE:\s*([^\]]+)\]/g;
+            return cleanStr.replace(regex, (match, desc) => {
+                return `
+                <div class="my-2 p-3 bg-gray-100 border-2 border-dashed border-gray-400 rounded text-center text-gray-700 flex flex-col items-center justify-center">
+                    <i class="fa fa-camera text-lg text-deped mb-1"></i>
+                    <span class="font-semibold text-[10px] uppercase tracking-wide text-depedDark">[ VISUAL RECOGNITION FRAME ]</span>
+                    <p class="italic text-[10px] mt-0.5 max-w-xs text-gray-600">${desc}</p>
+                </div>`;
+            }).replace(/\n/g, '<br>');
+        }
+
+        function renderHtmlPreview(d) {
+            const container = document.getElementById('lessonPlanContent');
+            
+            let html = `
+                <table class="w-full text-left border-collapse border border-gray-400 font-sans text-xs">
+                    <tbody>
+                        <tr class="border-b border-gray-400 bg-gray-50 font-semibold"><td class="p-2 border-r border-gray-400 w-1/5">Name of Lesson</td><td colspan="5" class="p-2 text-blue-900 font-bold">${cleanTxt(d.lessonName)}</td></tr>
+                        <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold">Learning Area</td><td colspan="5" class="p-2">${cleanTxt(d.meta.subject)}</td></tr>
+                        <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold">Term / Week</td><td colspan="5" class="p-2">${cleanTxt(d.meta.termWeek)}</td></tr>
+                        <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold">Grade Level / Session Block</td><td colspan="5" class="p-2">Grade ${cleanTxt(d.meta.grade)} — (${cleanTxt(d.meta.hours)})</td></tr>
+                        <tr class="border-b border-gray-400 bg-blue-800 text-white font-bold text-center">
+                            <td class="p-2 border-r border-gray-400 text-left">No. of Sessions: ${cleanTxt(d.meta.sessions)}</td>
+                            <td class="p-2 border-r border-gray-400 w-16">Session 1</td>
+                            <td class="p-2 border-r border-gray-400 w-16">Session 2</td>
+                            <td class="p-2 border-r border-gray-400 w-16">Session 3</td>
+                            <td class="p-2 border-r border-gray-400 w-16">Session 4</td>
+                            <td class="p-2 w-16">Session 5</td>
+                        </tr>
+                        <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">References</td><td colspan="5" class="p-2">${cleanTxt(d.references)}</td></tr>
+                        <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50 text-red-800">Declaration of AI Use</td><td colspan="5" class="p-2 italic text-gray-600">${cleanTxt(d.meta.aiStatement)}</td></tr>
+                        
+                        <tr class="border-b border-gray-400 bg-blue-100 font-bold text-gray-900"><td colspan="6" class="p-2 uppercase tracking-wider">Intentions</td></tr>
+                        <tr class="border-b border-gray-400">
+                            <td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Learning Competency & Standards</td>
+                            <td colspan="5" class="p-2">
+                                <div class="mb-2"><strong>LEARNING COMPETENCY:</strong><br>${cleanTxt(d.meta.competency)}</div>
+                                <div class="mb-2"><strong>CONTENT STANDARD:</strong><br>${cleanTxt(d.meta.contentStd)}</div>
+                                <div><strong>PERFORMANCE STANDARD:</strong><br>${cleanTxt(d.meta.perfStd)}</div>
+                            </td>
+                        </tr>
+                        <tr class="border-b border-gray-400">
+                            <td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Learning Objectives</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s1)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s2)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s3)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s4)}</td>
+                            <td class="p-2 font-normal whitespace-pre-line">${cleanTxt(d.objectives.s5)}</td>
+                        </tr>
+                        <tr class="border-b border-gray-400">
+                            <td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Learner Context</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s1)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s2)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s3)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s4)}</td>
+                            <td class="p-2 font-normal whitespace-pre-line">${cleanTxt(d.learnerContext.s5)}</td>
+                        </tr>
+
+                        <tr class="border-b border-gray-400 bg-blue-100 font-bold text-gray-900"><td colspan="6" class="p-2 uppercase tracking-wider">Learning Experience Flow</td></tr>
+                        <tr class="border-b border-gray-400">
+                            <td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Pre-Lesson (Priming/Review)</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s1)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s2)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s3)}</td>
+                            <td class="p-2 border-r border-gray-400 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s4)}</td>
+                            <td class="p-2 font-normal whitespace-pre-line">${cleanTxt(d.preLesson.s5)}</td>
+                        </tr>
+                        <tr class="border-b border-gray-400">
+                            <td class="p-2 border-r border-gray-400 font-semibold bg-blue-50 text-blue-900 font-medium">Lesson Proper (Activities Flow)</td>
+                            <td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s1)}</td>
+                            <td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s2)}</td>
+                            <td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s3)}</td>
+                            <td class="p-2 border-r border-gray-400 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s4)}</td>
+                            <td class="p-2 bg-blue-50/40 text-gray-950 font-normal whitespace-pre-line">${cleanTxt(d.lessonProper.s5)}</td>
+                        </tr>
+                        <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Learning Resources</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.resources.s1)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.resources.s2)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.resources.s3)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.resources.s4)}</td><td class="p-2 whitespace-pre-line">${cleanTxt(d.resources.s5)}</td></tr>
+                        <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Integration Opportunities</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.integration.s1)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.integration.s2)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.integration.s3)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.integration.s4)}</td><td class="p-2 whitespace-pre-line">${cleanTxt(d.integration.s5)}</td></tr>
+
+                        <tr class="border-b border-gray-400 bg-blue-100 font-bold text-gray-900"><td colspan="6" class="p-2 uppercase tracking-wider">Assessment & Evaluation Checkpoints</td></tr>
+                        <tr class="border-b border-gray-400">
+                            <td class="p-2 border-r border-gray-400 font-semibold bg-orange-50 text-orange-900 font-medium">Formative Assessment Task</td>
+                            <td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s1)}</td>
+                            <td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s2)}</td>
+                            <td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s3)}</td>
+                            <td class="p-2 border-r border-gray-400 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s4)}</td>
+                            <td class="p-2 bg-orange-50/20 text-gray-950 font-normal">${parseVisualBlocksHtml(d.assessment.s5)}</td>
+                        </tr>
+                        <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Ways Forward (Extended Tasks)</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.extendedLearning.s1)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.extendedLearning.s2)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.extendedLearning.s3)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.extendedLearning.s4)}</td><td class="p-2 whitespace-pre-line">${cleanTxt(d.extendedLearning.s5)}</td></tr>
+
+                        <tr class="border-b border-gray-400 bg-blue-100 font-bold text-gray-900"><td colspan="6" class="p-2 uppercase tracking-wider">Reflections & Notes</td></tr>
+                        <tr class="border-b border-gray-400"><td class="p-2 border-r border-gray-400 font-semibold bg-gray-50">Teacher Reflection Framework</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.reflections.s1)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.reflections.s2)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.reflections.s3)}</td><td class="p-2 border-r border-gray-400 whitespace-pre-line">${cleanTxt(d.reflections.s4)}</td><td class="p-2 whitespace-pre-line">${cleanTxt(d.reflections.s5)}</td></tr>
+                    </tbody>
+                </table>`;
+            container.innerHTML = html;
+        }
+
+        function parseVisualBlocksPdfMake(str) {
+            const rawStr = cleanTxt(str);
+            const regex = /\[INSERT IMAGE:\s*([^\]]+)\]/g;
+            const contentParts = [];
+            let lastIndex = 0;
+            let match;
+
+            while ((match = regex.exec(rawStr)) !== null) {
+                const textBefore = rawStr.substring(lastIndex, match.index);
+                if (textBefore) contentParts.push({ text: textBefore });
+
+                const imgDesc = match[1];
+                contentParts.push({
+                    stack: [
+                        { text: '📷  [ VISUAL RECOGNITION FRAME ]', bold: true, fontSize: 8, color: '#004B87', alignment: 'center', margin: [0, 4, 0, 2] },
+                        { text: imgDesc, italic: true, fontSize: 8, color: '#4b5563', alignment: 'center', margin: [5, 0, 5, 4] }
+                    ],
+                    fillColor: '#f3f4f6',
+                    margin: [0, 5, 0, 5],
+                    border: [true, true, true, true]
+                });
+
+                lastIndex = regex.lastIndex;
+            }
+
+            const textAfter = rawStr.substring(lastIndex);
+            if (textAfter) contentParts.push({ text: textAfter });
+
+            if (contentParts.length === 0) return { text: rawStr };
+            return { stack: contentParts };
+        }
+
+        // PDF Matrix Exporter (Explicit Font Size 10)
+        document.getElementById('exportPdfBtn').addEventListener('click', function() {
+            if(!window.ilawDataset) return;
+            const d = window.ilawDataset;
+
+            const docDefinition = {
+                pageOrientation: 'landscape',
+                pageSize: 'A4',
+                pageMargins: [15, 20, 15, 20],
+                content: [
+                    { text: 'DEPARTMENT OF EDUCATION OFFICIAL DAILY LESSON LOG (ILAW MATRIX FORMAT)', style: 'headerMain' },
+                    { text: 'Aligned to DepEd DO 3, s. 2026 Core Layouts', style: 'headerSub' },
+                    {
+                        style: 'matrixTable',
+                        table: {
+                            widths: ['18%', '16.4%', '16.4%', '16.4%', '16.4%', '16.4%'],
+                            body: [
+                                [{ text: 'Name of Lesson', style: 'fieldLabel' }, { text: cleanTxt(d.lessonName), colSpan: 5, style: 'fieldValBold' }, '', '', '', ''],
+                                [{ text: 'Learning Area', style: 'fieldLabel' }, { text: cleanTxt(d.meta.subject), colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
+                                [{ text: 'Term / Week', style: 'fieldLabel' }, { text: cleanTxt(d.meta.termWeek), colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
+                                [{ text: 'Grade & Parameters', style: 'fieldLabel' }, { text: `Grade ${cleanTxt(d.meta.grade)} — (${cleanTxt(d.meta.hours)})`, colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
+                                [{ text: `No. of Sessions: ${cleanTxt(d.meta.sessions)}`, style: 'headerCell' }, { text: 'Session 1', style: 'headerCell' }, { text: 'Session 2', style: 'headerCell' }, { text: 'Session 3', style: 'headerCell' }, { text: 'Session 4', style: 'headerCell' }, { text: 'Session 5', style: 'headerCell' }],
+                                [{ text: 'References', style: 'fieldLabel' }, { text: cleanTxt(d.references), colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
+                                [{ text: 'AI Use Declaration', style: 'fieldLabelColor' }, { text: cleanTxt(d.meta.aiStatement), colSpan: 5, style: 'aiStatementText' }, '', '', '', ''],
+                                
+                                [{ text: 'INTENTIONS', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
+                                [{ text: 'Curriculum Standards', style: 'fieldLabel' }, { text: `LEARNING COMPETENCY:\n${cleanTxt(d.meta.competency)}\n\nCONTENT STANDARD:\n${cleanTxt(d.meta.contentStd)}\n\nPERFORMANCE STANDARD:\n${cleanTxt(d.meta.perfStd)}`, colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
+                                [{ text: 'Learning Objectives', style: 'fieldLabel' }, { text: cleanTxt(d.objectives.s1) }, { text: cleanTxt(d.objectives.s2) }, { text: cleanTxt(d.objectives.s3) }, { text: cleanTxt(d.objectives.s4) }, { text: cleanTxt(d.objectives.s5) }],
+                                [{ text: 'Learner Context', style: 'fieldLabel' }, { text: cleanTxt(d.learnerContext.s1) }, { text: cleanTxt(d.learnerContext.s2) }, { text: cleanTxt(d.learnerContext.s3) }, { text: cleanTxt(d.learnerContext.s4) }, { text: cleanTxt(d.learnerContext.s5) }],
+                                
+                                [{ text: 'LEARNING EXPERIENCE FLOW', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
+                                [{ text: 'Pre-Lesson (Priming)', style: 'fieldLabel' }, { text: cleanTxt(d.preLesson.s1) }, { text: cleanTxt(d.preLesson.s2) }, { text: cleanTxt(d.preLesson.s3) }, { text: cleanTxt(d.preLesson.s4) }, { text: cleanTxt(d.preLesson.s5) }],
+                                [{ text: 'Lesson Proper (Numbered Flow)', style: 'fieldLabelProper' }, { text: cleanTxt(d.lessonProper.s1) }, { text: cleanTxt(d.lessonProper.s2) }, { text: cleanTxt(d.lessonProper.s3) }, { text: cleanTxt(d.lessonProper.s4) }, { text: cleanTxt(d.lessonProper.s5) }],
+                                [{ text: 'Learning Resources', style: 'fieldLabel' }, { text: cleanTxt(d.resources.s1) }, { text: cleanTxt(d.resources.s2) }, { text: cleanTxt(d.resources.s3) }, { text: cleanTxt(d.resources.s4) }, { text: cleanTxt(d.resources.s5) }],
+                                [{ text: 'Opportunities for Integration', style: 'fieldLabel' }, { text: cleanTxt(d.integration.s1) }, { text: cleanTxt(d.integration.s2) }, { text: cleanTxt(d.integration.s3) }, { text: cleanTxt(d.integration.s4) }, { text: cleanTxt(d.integration.s5) }],
+                                
+                                [{ text: 'ASSESSMENT & WAYS FORWARD', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
+                                [
+                                    { text: 'Formative Assessments', style: 'fieldLabelAssessment' }, 
+                                    parseVisualBlocksPdfMake(d.assessment.s1), 
+                                    parseVisualBlocksPdfMake(d.assessment.s2), 
+                                    parseVisualBlocksPdfMake(d.assessment.s3), 
+                                    parseVisualBlocksPdfMake(d.assessment.s4), 
+                                    parseVisualBlocksPdfMake(d.assessment.s5)
+                                ],
+                                [{ text: 'Extended Learning Tasks', style: 'fieldLabel' }, { text: cleanTxt(d.extendedLearning.s1) }, { text: cleanTxt(d.extendedLearning.s2) }, { text: cleanTxt(d.extendedLearning.s3) }, { text: cleanTxt(d.extendedLearning.s4) }, { text: cleanTxt(d.extendedLearning.s5) }],
+                                
+                                [{ text: 'REFLECTIONS & INSIGHTS', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
+                                [{ text: 'Teacher Reflection Metrics', style: 'fieldLabel' }, { text: cleanTxt(d.reflections.s1) }, { text: cleanTxt(d.reflections.s2) }, { text: cleanTxt(d.reflections.s3) }, { text: cleanTxt(d.reflections.s4) }, { text: cleanTxt(d.reflections.s5) }]
+                            ]
+                        }
+                    }
+                ],
+                styles: {
+                    headerMain: { fontSize: 12, bold: true, alignment: 'center', textColor: '#00335C' },
+                    headerSub: { fontSize: 10, alignment: 'center', margin: [0, 2, 0, 10], textColor: '#555555' },
+                    matrixTable: { fontSize: 10 },
+                    fieldLabel: { bold: true, fillColor: '#f9fafb', fontSize: 10 },
+                    fieldLabelProper: { bold: true, fillColor: '#E6F0F8', textColor: '#00335C', fontSize: 10 },
+                    fieldLabelAssessment: { bold: true, fillColor: '#ffedd5', textColor: '#431407', fontSize: 10 },
+                    fieldLabelColor: { bold: true, fillColor: '#f9fafb', textColor: '#991b1b', fontSize: 10 },
+                    fieldValBold: { bold: true, textColor: '#004B87', fontSize: 10 },
+                    fieldVal: { textColor: '#111111', fontSize: 10 },
+                    aiStatementText: { italic: true, textColor: '#4b5563', fontSize: 9 },
+                    headerCell: { bold: true, fillColor: '#004B87', textColor: '#ffffff', alignment: 'center', fontSize: 10 },
+                    sectionDivider: { bold: true, fillColor: '#E6F0F8', textColor: '#00335C', alignment: 'center', fontSize: 11 }
+                },
+                defaultStyle: { fontSize: 10, lineHeight: 1.25 }
+            };
+
+            pdfMake.createPdf(docDefinition).download(`DepEd_ILAW_Matrix_Grade${d.meta.grade}.pdf`);
+        });
+
+        // DOCX Matrix Exporter (Fixed Standards Arrangement & Font Size 10)
+        document.getElementById('exportDocxBtn').addEventListener('click', async function() {
+            if(!window.ilawDataset) return;
+            const d = window.ilawDataset;
+            const { Document, Table, TableRow, TableCell, Paragraph, TextRun, AlignmentType, WidthType, BorderStyle, PageOrientation } = docx;
+
+            const borderCfg = { style: BorderStyle.SINGLE, size: 4, color: "666666" };
+            const defCellBorders = { top: borderCfg, bottom: borderCfg, left: borderCfg, right: borderCfg };
+
+            const labelCell = (txt, bgHex = "F9FAFB") => new TableCell({
+                shading: { fill: bgHex }, borders: defCellBorders,
+                children: [new Paragraph({ children: [new TextRun({ text: cleanTxt(txt), bold: true, size: 20 })] })]
+            });
+            
+            const headerCell = (txt) => new TableCell({
+                shading: { fill: "004B87" }, borders: defCellBorders,
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: cleanTxt(txt), bold: true, color: "FFFFFF", size: 20 })] })]
+            });
+            
+            const dividerCell = (txt) => new TableCell({
+                columnSpan: 6, shading: { fill: "E6F0F8" }, borders: defCellBorders,
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: cleanTxt(txt), bold: true, color: "00335C", size: 22 })] })]
+            });
+
+            const createStandardsCell = () => {
+                return new TableCell({
+                    columnSpan: 5,
+                    borders: defCellBorders,
+                    children: [
+                        new Paragraph({ children: [new TextRun({ text: "LEARNING COMPETENCY:", bold: true, size: 20, color: "00335C" })] }),
+                        new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta.competency, size: 20 })] }),
+                        new Paragraph({ children: [new TextRun({ text: "CONTENT STANDARD:", bold: true, size: 20, color: "00335C" })] }),
+                        new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta.contentStd, size: 20 })] }),
+                        new Paragraph({ children: [new TextRun({ text: "PERFORMANCE STANDARD:", bold: true, size: 20, color: "00335C" })] }),
+                        new Paragraph({ children: [new TextRun({ text: d.meta.perfStd, size: 20 })] })
+                    ]
+                });
+            };
+
+            const cellText = (txt, bgHex = "FFFFFF") => new TableCell({
+                shading: { fill: bgHex }, borders: defCellBorders,
+                children: cleanTxt(txt).split('\n').map(line => new Paragraph({ children: [new TextRun({ text: line, size: 20 })] }))
+            });
+
+            const cellTextWithImagesDocx = (txt, bgHex = "FFFFFF") => {
+                const rawStr = cleanTxt(txt);
+                const regex = /\[INSERT IMAGE:\s*([^\]]+)\]/g;
+                const childrenElements = [];
+                let lastIndex = 0;
+                let match;
+
+                while ((match = regex.exec(rawStr)) !== null) {
+                    const textBefore = rawStr.substring(lastIndex, match.index);
+                    if (textBefore) {
+                        textBefore.split('\n').forEach(line => {
+                            childrenElements.push(new Paragraph({ children: [new TextRun({ text: line, size: 20 })] }));
+                        });
+                    }
+
+                    const imgDesc = match[1];
+                    childrenElements.push(
+                        new Paragraph({
+                            spacing: { before: 100, after: 40 },
+                            children: [new TextRun({ text: "📷 [ VISUAL RECOGNITION FRAME ]", bold: true, size: 16, color: "004B87" })]
+                        })
+                    );
+                    childrenElements.push(
+                        new Paragraph({
+                            spacing: { after: 100 },
+                            children: [new TextRun({ text: imgDesc, italic: true, size: 16, color: "555555" })]
+                        })
+                    );
+
+                    lastIndex = regex.lastIndex;
+                }
+
+                const textAfter = rawStr.substring(lastIndex);
+                if (textAfter) {
+                    textAfter.split('\n').forEach(line => {
+                        childrenElements.push(new Paragraph({ children: [new TextRun({ text: line, size: 20 })] }));
+                    });
+                }
+
+                if (childrenElements.length === 0) {
+                    childrenElements.push(new Paragraph({ children: [new TextRun({ text: rawStr, size: 20 })] }));
+                }
+
+                return new TableCell({
+                    shading: { fill: bgHex },
+                    borders: defCellBorders,
+                    children: childrenElements
+                });
+            };
+
+            const cellTextSpan = (txt, span, isBold = false) => new TableCell({
+                columnSpan: span, borders: defCellBorders,
+                children: [new Paragraph({ children: [new TextRun({ text: cleanTxt(txt), size: 20, bold: isBold })] })]
+            });
+
+            const doc = new Document({
+                sections: [{
+                    properties: {
+                        page: {
+                            size: { width: docx.convertInchesToTwip(11.69), height: docx.convertInchesToTwip(8.27) },
+                            orientation: PageOrientation.LANDSCAPE,
+                            margin: { top: 600, bottom: 600, left: 600, right: 600 }
+                        }
+                    },
+                    children: [
+                        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "DEPARTMENT OF EDUCATION DAILY LESSON LOG (ILAW FORMAT)", bold: true, size: 24, color: "00335C" })] }),
+                        new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: "Aligned to DepEd DO 3, s. 2026 Layout Protocols", italic: true, size: 18 })] }),
+                        new Table({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            rows: [
+                                new TableRow({ children: [labelCell("Name of Lesson"), cellTextSpan(d.lessonName, 5, true)] }),
+                                new TableRow({ children: [labelCell("Learning Area"), cellTextSpan(d.meta.subject, 5)] }),
+                                new TableRow({ children: [labelCell("Term / Week"), cellTextSpan(d.meta.termWeek, 5)] }),
+                                new TableRow({ children: [labelCell("Grade & Parameters"), cellTextSpan(`Grade ${d.meta.grade} — (${d.meta.hours})`, 5)] }),
+                                new TableRow({ children: [headerCell(`Sessions: ${d.meta.sessions}`), headerCell("Session 1"), headerCell("Session 2"), headerCell("Session 3"), headerCell("Session 4"), headerCell("Session 5")] }),
+                                new TableRow({ children: [labelCell("References"), cellTextSpan(d.references, 5)] }),
+                                new TableRow({ children: [labelCell("AI Use Declaration"), new TableCell({ columnSpan: 5, borders: defCellBorders, children: [new Paragraph({ children: [new TextRun({ text: d.meta.aiStatement, italic: true, size: 18, color: "555555" })] })] })] }),
+                                
+                                new TableRow({ children: [dividerCell("INTENTIONS")] }),
+                                new TableRow({ children: [labelCell("Curriculum Standards"), createStandardsCell()] }),
+                                new TableRow({ children: [labelCell("Learning Objectives"), cellText(d.objectives.s1), cellText(d.objectives.s2), cellText(d.objectives.s3), cellText(d.objectives.s4), cellText(d.objectives.s5)] }),
+                                new TableRow({ children: [labelCell("Learner Context"), cellText(d.learnerContext.s1), cellText(d.learnerContext.s2), cellText(d.learnerContext.s3), cellText(d.learnerContext.s4), cellText(d.learnerContext.s5)] }),
+                                
+                                new TableRow({ children: [dividerCell("LEARNING EXPERIENCE FLOW")] }),
+                                new TableRow({ children: [labelCell("Pre-Lesson Framework"), cellText(d.preLesson.s1), cellText(d.preLesson.s2), cellText(d.preLesson.s3), cellText(d.preLesson.s4), cellText(d.preLesson.s5)] }),
+                                new TableRow({ children: [labelCell("Lesson Proper (Numbered Flow)", "E6F0F8"), cellText(d.lessonProper.s1, "F4F8FA"), cellText(d.lessonProper.s2, "F4F8FA"), cellText(d.lessonProper.s3, "F4F8FA"), cellText(d.lessonProper.s4, "F4F8FA"), cellText(d.lessonProper.s5, "F4F8FA")] }),
+                                new TableRow({ children: [labelCell("Learning Resources"), cellText(d.resources.s1), cellText(d.resources.s2), cellText(d.resources.s3), cellText(d.resources.s4), cellText(d.resources.s5)] }),
+                                new TableRow({ children: [labelCell("Integration Scope"), cellText(d.integration.s1), cellText(d.integration.s2), cellText(d.integration.s3), cellText(d.integration.s4), cellText(d.integration.s5)] }),
+                                
+                                new TableRow({ children: [dividerCell("ASSESSMENTS & EVALUATIONS")] }),
+                                new TableRow({ children: [labelCell("Formative Tasks", "FFEDD5"), cellTextWithImagesDocx(d.assessment.s1, "FFFBF7"), cellTextWithImagesDocx(d.assessment.s2, "FFFBF7"), cellTextWithImagesDocx(d.assessment.s3, "FFFBF7"), cellTextWithImagesDocx(d.assessment.s4, "FFFBF7"), cellTextWithImagesDocx(d.assessment.s5, "FFFBF7")] }),
+                                new TableRow({ children: [labelCell("Extended Learning"), cellText(d.extendedLearning.s1), cellText(d.extendedLearning.s2), cellText(d.extendedLearning.s3), cellText(d.extendedLearning.s4), cellText(d.extendedLearning.s5)] }),
+                                
+                                new TableRow({ children: [dividerCell("REFLECTIONS & INSIGHTS")] }),
+                                new TableRow({ children: [labelCell("Teacher Self-Reflection"), cellText(d.reflections.s1), cellText(d.reflections.s2), cellText(d.reflections.s3), cellText(d.reflections.s4), cellText(d.reflections.s5)] })
+                            ]
+                        })
+                    ]
+                }]
+            });
+
+            const blob = await docx.Packer.toBlob(doc);
+            saveAs(blob, `DepEd_ILAW_Matrix_Grade${d.meta.grade}.docx`);
+        });
+    </script>
+</body>
+</html>

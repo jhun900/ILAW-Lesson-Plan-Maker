@@ -231,7 +231,10 @@
         const MISTRAL_API_KEY = "YxzTi7XRyqOtSX1rn2JPSbLd42nzMCKj";
         const MISTRAL_MODEL = "mistral-small-latest";
 
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // FIXED: Destructure from window.supabase to avoid JS Temporal Dead Zone identifier collisions!
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
         let currentUser = null;
         let userCredits = 0;
         let realtimeSubscription = null;
@@ -239,8 +242,6 @@
         // ==========================================
         // 2. MULTI-LAYERED CREDIT PROTECTION PROTOCOL
         // ==========================================
-        
-        // LAYER 1: Authoritative Database Fetch (Ignores Local Storage & Cache)
         async function fetchTrueBalanceFromServer(userId) {
             const { data, error } = await supabase
                 .from('profiles')
@@ -256,13 +257,11 @@
             return 0;
         }
 
-        // LAYER 2: Live Pre-Flight Check (Prevents Console Tampering)
         async function verifySufficientFundsBeforeExport(requiredAmount = 2) {
             if (!currentUser) {
                 alert("Please sign in with Google to export documents.");
                 return false;
             }
-            // Fetch live unaltered state straight from Postgres before proceeding
             const liveBalance = await fetchTrueBalanceFromServer(currentUser.id);
             if (liveBalance < requiredAmount) {
                 openTopUpModal();
@@ -271,18 +270,15 @@
             return true;
         }
 
-        // LAYER 3: Atomic Server-Side Deduction (Prevents Race Conditions)
         async function executeAtomicDeduction(amount = 2) {
             if (!currentUser) return false;
             
-            // Invoke the Postgres RPC function for atomic SQL transaction
             const { data: success, error } = await supabase.rpc('deduct_user_credits', {
                 deduct_amount: amount
             });
 
             if (error) {
                 console.warn("RPC Failed, executing strict fallback verification...", error);
-                // Strict Fallback: Re-verify balance server-side before standard update
                 const liveBalance = await fetchTrueBalanceFromServer(currentUser.id);
                 if (liveBalance >= amount) {
                     const { error: updateError } = await supabase
@@ -305,7 +301,6 @@
             return false;
         }
 
-        // LAYER 4: Realtime Webhook Sync (Instant UI Lock)
         function setupRealtimeCreditSubscription(userId) {
             if (realtimeSubscription) supabase.removeChannel(realtimeSubscription);
 
@@ -350,7 +345,6 @@
                 loggedOutView.classList.add('hidden');
                 loggedInView.classList.remove('hidden');
                 
-                // Initialize profile and lock onto authoritative database balance
                 let { data: profile } = await supabase.from('profiles').select('credits').eq('id', currentUser.id).single();
                 if (!profile) {
                     await supabase.from('profiles').insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }]);
@@ -441,7 +435,12 @@
             });
         }
         
-        window.onload = initSubjectDropdown;
+        // Execute dropdown initialization reliably on DOM load
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSubjectDropdown);
+        } else {
+            initSubjectDropdown();
+        }
 
         const cleanTxt = (t) => {
             if (!t) return 'N/A';
@@ -675,11 +674,9 @@ Return ONLY a valid JSON object matching this structural schema template exactly
         // 5. PROTECTED EXPORTERS (LIVE PRE-FLIGHT CHECK + ATOMIC DEDUCT)
         // ==========================================
         document.getElementById('exportPdfBtn').addEventListener('click', async function() {
-            // Pre-Flight Verification
             const hasFunds = await verifySufficientFundsBeforeExport(2);
             if (!hasFunds) return;
 
-            // Execute Atomic Deduction via Server Database
             const deducted = await executeAtomicDeduction(2);
             if (!deducted) {
                 alert("Transaction failed: Insufficient verified credits or database connection issue.");
@@ -751,11 +748,9 @@ Return ONLY a valid JSON object matching this structural schema template exactly
         });
 
         document.getElementById('exportDocxBtn').addEventListener('click', async function() {
-            // Pre-Flight Verification
             const hasFunds = await verifySufficientFundsBeforeExport(2);
             if (!hasFunds) return;
 
-            // Execute Atomic Deduction via Server Database
             const deducted = await executeAtomicDeduction(2);
             if (!deducted) {
                 alert("Transaction failed: Insufficient verified credits or database connection issue.");

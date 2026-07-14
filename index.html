@@ -566,7 +566,7 @@
         }
 
         // ==========================================
-        // 5. ENCAPSULATED DOM INITIALIZATION (GUARANTEES BUTTONS WORK!)
+        // 5. ENCAPSULATED DOM INITIALIZATION
         // ==========================================
         function initApp() {
             // Safely setup Supabase & restore session mapping without blocking DOM scripts
@@ -616,9 +616,10 @@
                         const { error } = await supabaseClient.auth.signInWithOAuth({ 
                             provider: 'google', 
                             options: { 
-                                redirectTo: window.location.origin,
+                                // FIX: Dynamically handles both development root domains and GitHub Pages subfolders safely
+                                redirectTo: window.location.origin + window.location.pathname,
                                 queryParams: {
-                                    client_id: GOOGLE_CLIENT_ID,
+                                    // FIX: Removed client_id (Supabase processes verification securely from its server settings)
                                     prompt: 'select_account'
                                 }
                             } 

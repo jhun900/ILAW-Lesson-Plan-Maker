@@ -12,6 +12,60 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script>
+        // =========================================================================
+        // 1. UNIVERSAL SAFE-DOM PATCH (CRASH PREVENTER)
+        // Intercepts DOM queries so missing/misspelled IDs never throw null errors.
+        // =========================================================================
+        (function() {
+            const originalGetElementById = document.getElementById.bind(document);
+            const originalQuerySelector = document.querySelector.bind(document);
+
+            // Safe fallback object that mimics an HTML element without crashing
+            const safeFallback = (idOrSelector) => ({
+                value: '',
+                checked: false,
+                innerText: '',
+                innerHTML: '',
+                textContent: '',
+                style: {},
+                classList: { add: () => {}, remove: () => {}, toggle: () => {}, contains: () => false },
+                getAttribute: () => null,
+                setAttribute: () => {},
+                addEventListener: () => {},
+                removeEventListener: () => {},
+                appendChild: () => {},
+                removeChild: () => {},
+                focus: () => {},
+                blur: () => {}
+            });
+
+            document.getElementById = function(id) {
+                const el = originalGetElementById(id);
+                if (!el) {
+                    console.warn(`[Safe DOM Warning] Element with ID "${id}" was not found. Using safe fallback.`);
+                    return safeFallback(id);
+                }
+                return el;
+            };
+
+            document.querySelector = function(selector) {
+                const el = originalQuerySelector(selector);
+                if (!el) {
+                    console.warn(`[Safe DOM Warning] Element matching "${selector}" was not found. Using safe fallback.`);
+                    return safeFallback(selector);
+                }
+                return el;
+            };
+        })();
+
+        // =========================================================================
+        // 2. SAFE VALUE GETTER HELPER
+        // =========================================================================
+        function getVal(id, defaultValue = '') {
+            const el = document.getElementById(id);
+            return (el && el.value !== undefined && el.value !== '') ? el.value : defaultValue;
+        }
+
         tailwind.config = {
             theme: {
                 extend: {
@@ -235,7 +289,6 @@
         const MISTRAL_MODEL = "mistral-small-latest";
 
         // IMPORTANT: UPDATE THIS TO YOUR ACTUAL PAYMENT BACKEND ENDPOINT
-        // (e.g., https://your-vercel-app.vercel.app/api/checkout OR your absolute Supabase Edge Function URL)
         const BACKEND_CHECKOUT_API_URL = "https://knfpnuofjxihwutuzbnd.supabase.co/functions/v1/paymongo-webhook";
 
         // Define supabase client globally to prevent TDZ/namespace issues
@@ -430,8 +483,6 @@
             if (!currentUser) return alert("Please sign in first before topping up credits.");
             
             try {
-                // Determine authorization token: Use active session token if signed in, otherwise default to Anon Key.
-                // This ensures external backends and Supabase Edge Functions both receive valid auth variables.
                 let authToken = SUPABASE_ANON_KEY;
                 if (supabaseClient) {
                     const { data } = await supabaseClient.auth.getSession();
@@ -440,7 +491,6 @@
                     }
                 }
 
-                // Using standard fetch allows you to map to ANY backend provider easily (Vercel, Render, Node.js, Edge Functions).
                 const response = await fetch(BACKEND_CHECKOUT_API_URL, {
                     method: 'POST',
                     headers: {
@@ -628,11 +678,10 @@
             const generateBtn = document.getElementById('generateBtn');
             if (generateBtn) {
                 generateBtn.addEventListener('click', async function() {
-                    const grade = document.getElementById('grade').value || 'Unspecified';
-                    const subject = document.getElementById('subject').value || 'Unspecified';
-                    const targetLang = document.getElementById('instructionalLang').value || 'English';
-                    const competencyEl = document.getElementById('competency');
-                    const competency = competencyEl ? competencyEl.value.trim() : "";
+                    const grade = getVal('grade', 'Unspecified');
+                    const subject = getVal('subject', 'Unspecified');
+                    const targetLang = getVal('instructionalLang', 'English');
+                    const competency = getVal('competency').trim();
 
                     if (!competency) {
                         alert('Please fill out the Target Learning Competency marked with an asterisk (*).');
@@ -729,12 +778,12 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                             ...rawJson,
                             meta: {
                                 grade: grade, subject: subject,
-                                termWeek: document.getElementById('termWeek').value || 'N/A',
-                                hours: document.getElementById('hoursPerSession').value || 'N/A',
-                                sessions: document.getElementById('numSessions').value || '5',
+                                termWeek: getVal('termWeek', 'N/A'),
+                                hours: getVal('hoursPerSession', 'N/A'),
+                                sessions: getVal('numSessions', '5'),
                                 competency: competency,
-                                contentStd: document.getElementById('contentStandard').value || 'Compliant with DepEd Core Matrix Targets.',
-                                perfStd: document.getElementById('performanceStandard').value || 'Compliant with DepEd Core Performance Guidelines.',
+                                contentStd: getVal('contentStandard', 'Compliant with DepEd Core Matrix Targets.'),
+                                perfStd: getVal('performanceStandard', 'Compliant with DepEd Core Performance Guidelines.'),
                                 aiStatement: "This lesson matrix was systematically conceptualized with AI assistance for objective structure mapping; verified, contextualized, and authenticated by the teacher. (DO 3, s. 2026 Annex A)."
                             }
                         };

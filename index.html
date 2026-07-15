@@ -208,9 +208,10 @@
                         <span class="block text-2xl font-extrabold text-depedDark">110 <span class="text-xs font-normal">Credits</span></span>
                         <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 100.00</span>
                     </div>
-                    <div onclick="initiatePaymongoCheckout(500, 550)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative">
-                        <span class="absolute -top-2 -right-2 bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+50 Bonus</span>
-                        <span class="block text-2xl font-extrabold text-depedDark">550 <span class="text-xs font-normal">Credits</span></span>
+                    <!-- Updated UI strictly mapping 560 credits for 500 Php -->
+                    <div onclick="initiatePaymongoCheckout(500, 560)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative">
+                        <span class="absolute -top-2 -right-2 bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+60 Bonus</span>
+                        <span class="block text-2xl font-extrabold text-depedDark">560 <span class="text-xs font-normal">Credits</span></span>
                         <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 500.00</span>
                     </div>
                 </div>
@@ -437,7 +438,7 @@
                     }
                 }
 
-                // FIXED: Included 'line_items' and converted amount to centavos for Paymongo integration
+                // Explicit line_items array replacement per user instructions mapping product details, price, currency, and quantity dynamically
                 const response = await fetch(BACKEND_CHECKOUT_API_URL, {
                     method: 'POST',
                     headers: {
@@ -453,7 +454,8 @@
                         line_items: [
                             {
                                 name: `${creditsToAdd} ILAW Credits`,
-                                amount: Math.round(amountPhp * 100), // Paymongo requires centavos
+                                description: `Purchase of ${creditsToAdd} credits for ₱${amountPhp}.00`,
+                                amount: amountPhp * 100, // Paymongo accepts prices purely in centavos
                                 currency: 'PHP',
                                 quantity: 1
                             }

@@ -80,6 +80,9 @@
     </script>
     <style type="text/tailwindcss">
         @layer utilities {
+            .hidden {
+                display: none !important;
+            }
             .form-input {
                 @apply w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-deped focus:border-transparent text-sm;
             }
@@ -522,16 +525,11 @@
         };
 
         function parseVisualBlocksHtml(str) {
-            const cleanStr = cleanTxt(str);
-            const regex = /\[INSERT IMAGE:\s*([^\]]+)\]/g;
+            const cleanStr = cleanTxt(str).replace(/\n/g, '<br>');
+            const regex = /\[INSERT IMAGE:\s*([^<\]]+)\]/g;
             return cleanStr.replace(regex, (match, desc) => {
-                return `
-                <div class="my-2 p-3 bg-gray-100 border-2 border-dashed border-gray-400 rounded text-center text-gray-700 flex flex-col items-center justify-center">
-                    <i class="fa fa-camera text-lg text-deped mb-1"></i>
-                    <span class="font-semibold text-[10px] uppercase tracking-wide text-depedDark">[ VISUAL RECOGNITION FRAME ]</span>
-                    <p class="italic text-[10px] mt-0.5 max-w-xs text-gray-600">${desc}</p>
-                </div>`;
-            }).replace(/\n/g, '<br>');
+                return `<div class="my-2 p-3 bg-gray-100 border-2 border-dashed border-gray-400 rounded text-center text-gray-700 flex flex-col items-center justify-center"><i class="fa fa-camera text-lg text-deped mb-1"></i><span class="font-semibold text-[10px] uppercase tracking-wide text-depedDark">[ VISUAL RECOGNITION FRAME ]</span><p class="italic text-[10px] mt-0.5 max-w-xs text-gray-600">${desc}</p></div>`;
+            });
         }
 
         function renderHtmlPreview(d) {
@@ -693,7 +691,7 @@ You MUST format this field strictly as a single text block consisting of a clear
 CRITICAL INSTRUCTION FOR "assessment":
 Evaluate learning and provide immediate feedback by writing out actual, completely constructed evaluation questions or tasks matching the subject matter context. 
 Depending on the specific Learning Area (${subject}), choose and design at least 1 to 3 distinct types of items from permitted formats (Multiple Choice, True/False, Matching Type, Identification, Fill in the Blanks, Essay).
-Whenever a test item benefits from visual references, graphics, or diagrams, embed a precise image instruction using this exact syntax block inside the string: [INSERT IMAGE: detailed visual description].
+Whenever a test item benefits from visual references, graphics, or diagrams, embed a precise image instruction using this exact syntax block inside the string: .
 
 Return ONLY a valid JSON object matching this structural schema template exactly:
 {
@@ -705,7 +703,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
   "lessonProper": { "s1": "1. ... \\n2. ...", "s2": "1. ... \\n2. ...", "s3": "1. ... \\n2. ...", "s4": "1. ... \\n2. ...", "s5": "1. ... \\n2. ..." },
   "resources": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
   "integration": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
-  "assessment": { "s1": "1. Multiple Choice\\nPanuto: Tukuyin ang bagay...\\n[INSERT IMAGE: description]\\nA. ...\\nSagot: A\\n\\nSupport Lifeline: ...\\nAccommodations: ...", "s2": "...", "s3": "...", "s4": "...", "s5": "..." },
+  "assessment": { "s1": "1. Multiple Choice\\nPanuto: Tukuyin ang bagay...\\nhttps://encrypted-tbn1.gstatic.com/licensed-image?q=tbn:ANd9GcRoi_tlk5q9pyBZ4WSQINLO7v3WtBqzw3YZXjv61YV5J2EKOWh3JhjXGcgPpJihHimCMqVQ7BUcMxbObys\\nA. ...\\nSagot: A\\n\\nSupport Lifeline: ...\\nAccommodations: ...", "s2": "...", "s3": "...", "s4": "...", "s5": "..." },
   "extendedLearning": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
   "reflections": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" }
 }`;
@@ -720,7 +718,12 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                         const data = await response.json();
                         if (!response.ok) throw new Error(data.error ? data.error.message : 'API Execution Exception');
 
-                        const rawJson = JSON.parse(data.choices[0].message.content.trim());
+                        let contentStr = data.choices[0].message.content.trim();
+                        if (contentStr.startsWith('```')) {
+                            contentStr = contentStr.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+                        }
+                        const rawJson = JSON.parse(contentStr);
+
                         window.ilawDataset = {
                             ...rawJson,
                             meta: {
@@ -793,7 +796,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                                         [{ text: 'Learning Resources', style: 'fieldLabel' }, { text: cleanTxt(d.resources?.s1) }, { text: cleanTxt(d.resources?.s2) }, { text: cleanTxt(d.resources?.s3) }, { text: cleanTxt(d.resources?.s4) }, { text: cleanTxt(d.resources?.s5) }],
                                         [{ text: 'Opportunities for Integration', style: 'fieldLabel' }, { text: cleanTxt(d.integration?.s1) }, { text: cleanTxt(d.integration?.s2) }, { text: cleanTxt(d.integration?.s3) }, { text: cleanTxt(d.integration?.s4) }, { text: cleanTxt(d.integration?.s5) }],
                                         
-                                        [{ text: 'ASSESSMENT & WAYS FORWARD', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
+                                        [{ text: 'ASSESSMENT & EVALUATIONS', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
                                         [
                                             { text: 'Formative Assessments', style: 'fieldLabelAssessment' }, 
                                             parseVisualBlocksPdfMake(d.assessment?.s1), parseVisualBlocksPdfMake(d.assessment?.s2), parseVisualBlocksPdfMake(d.assessment?.s3), parseVisualBlocksPdfMake(d.assessment?.s4), parseVisualBlocksPdfMake(d.assessment?.s5)
@@ -858,11 +861,11 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                         columnSpan: 5, borders: defCellBorders,
                         children: [
                             new Paragraph({ children: [new TextRun({ text: "LEARNING COMPETENCY:", bold: true, size: 20, color: "00335C" })] }),
-                            new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta?.competency || 'N/A', size: 20 })] }),
+                            ...cleanTxt(d.meta?.competency).split('\n').map(line => new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: line, size: 20 })] })),
                             new Paragraph({ children: [new TextRun({ text: "CONTENT STANDARD:", bold: true, size: 20, color: "00335C" })] }),
-                            new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta?.contentStd || 'N/A', size: 20 })] }),
+                            ...cleanTxt(d.meta?.contentStd).split('\n').map(line => new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: line, size: 20 })] })),
                             new Paragraph({ children: [new TextRun({ text: "PERFORMANCE STANDARD:", bold: true, size: 20, color: "00335C" })] }),
-                            new Paragraph({ children: [new TextRun({ text: d.meta?.perfStd || 'N/A', size: 20 })] })
+                            ...cleanTxt(d.meta?.perfStd).split('\n').map(line => new Paragraph({ children: [new TextRun({ text: line, size: 20 })] }))
                         ]
                     });
                     const cellText = (txt, bgHex = "FFFFFF") => new TableCell({

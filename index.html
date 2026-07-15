@@ -390,11 +390,22 @@
                 
                 if (supabaseClient) {
                     try {
-                        let { data: profile } = await supabaseClient.from('profiles').select('credits').eq('id', currentUser.id).single();
+                        // Use maybeSingle() to avoid errors if the user doesn't exist yet
+                        const { data: profile } = await supabaseClient
+                            .from('profiles')
+                            .select('id')
+                            .eq('id', currentUser.id)
+                            .maybeSingle();
+
                         if (!profile) {
-                            await supabaseClient.from('profiles').insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }]);
+                            // If profile doesn't exist, insert the initial record
+                            await supabaseClient
+                                .from('profiles')
+                                .insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }]);
                             alert("Welcome! You've received 5 Free Bonus Credits for signing in!");
                         }
+
+                        // Always fetch balance and setup subscription
                         await fetchTrueBalanceFromServer(currentUser.id);
                         setupRealtimeCreditSubscription(currentUser.id);
                     } catch (err) {

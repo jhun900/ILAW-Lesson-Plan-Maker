@@ -235,7 +235,6 @@
         const MISTRAL_MODEL = "mistral-small-latest";
 
         // IMPORTANT: UPDATE THIS TO YOUR ACTUAL PAYMENT BACKEND ENDPOINT
-        // (e.g., https://your-vercel-app.vercel.app/api/checkout OR your absolute Supabase Edge Function URL)
         const BACKEND_CHECKOUT_API_URL = "https://knfpnuofjxihwutuzbnd.supabase.co/functions/v1/paymongo-webhook";
 
         // Define supabase client globally to prevent TDZ/namespace issues
@@ -430,8 +429,6 @@
             if (!currentUser) return alert("Please sign in first before topping up credits.");
             
             try {
-                // Determine authorization token: Use active session token if signed in, otherwise default to Anon Key.
-                // This ensures external backends and Supabase Edge Functions both receive valid auth variables.
                 let authToken = SUPABASE_ANON_KEY;
                 if (supabaseClient) {
                     const { data } = await supabaseClient.auth.getSession();
@@ -440,7 +437,7 @@
                     }
                 }
 
-                // Using standard fetch allows you to map to ANY backend provider easily (Vercel, Render, Node.js, Edge Functions).
+                // FIXED: Included 'line_items' and converted amount to centavos for Paymongo integration
                 const response = await fetch(BACKEND_CHECKOUT_API_URL, {
                     method: 'POST',
                     headers: {
@@ -452,7 +449,15 @@
                         email: currentUser.email, 
                         amountPhp: amountPhp, 
                         credits: creditsToAdd, 
-                        returnUrl: window.location.href 
+                        returnUrl: window.location.href,
+                        line_items: [
+                            {
+                                name: `${creditsToAdd} ILAW Credits`,
+                                amount: Math.round(amountPhp * 100), // Paymongo requires centavos
+                                currency: 'PHP',
+                                quantity: 1
+                            }
+                        ]
                     })
                 });
 

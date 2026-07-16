@@ -194,26 +194,29 @@
                     You need at least <strong>2 credits</strong> to download official documents. Choose a top-up tier below to reload instantly via Paymongo:
                 </p>
                 <div class="grid grid-cols-2 gap-3 mb-6">
-                    <div onclick="initiatePaymongoCheckout(10, 10)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50">
-                        <span class="block text-2xl font-extrabold text-depedDark">10 <span class="text-xs font-normal">Credits</span></span>
-                        <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 10.00</span>
-                    </div>
-                    <div onclick="initiatePaymongoCheckout(50, 55)" class="border-2 border-deped rounded-lg p-4 text-center cursor-pointer transition bg-blue-50 hover:bg-blue-100 relative shadow-sm">
-                        <span class="absolute -top-2 -right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+5 Bonus</span>
-                        <span class="block text-2xl font-extrabold text-depedDark">55 <span class="text-xs font-normal">Credits</span></span>
-                        <span class="inline-block bg-deped text-white font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 50.00</span>
-                    </div>
-                    <div onclick="initiatePaymongoCheckout(100, 110)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative">
-                        <span class="absolute -top-2 -right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+10 Bonus</span>
-                        <span class="block text-2xl font-extrabold text-depedDark">110 <span class="text-xs font-normal">Credits</span></span>
-                        <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 100.00</span>
-                    </div>
-                    <div onclick="initiatePaymongoCheckout(500, 550)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative">
-                        <span class="absolute -top-2 -right-2 bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+50 Bonus</span>
-                        <span class="block text-2xl font-extrabold text-depedDark">550 <span class="text-xs font-normal">Credits</span></span>
-                        <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 500.00</span>
-                    </div>
-                </div>
+    <button type="button" onclick="initiatePaymongoCheckout(10, 10, this)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 w-full">
+        <span class="block text-2xl font-extrabold text-depedDark">10 <span class="text-xs font-normal">Credits</span></span>
+        <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 10.00</span>
+    </button>
+    
+    <button type="button" onclick="initiatePaymongoCheckout(50, 55, this)" class="border-2 border-deped rounded-lg p-4 text-center cursor-pointer transition bg-blue-50 hover:bg-blue-100 relative shadow-sm w-full">
+        <span class="absolute -top-2 -right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+5 Bonus</span>
+        <span class="block text-2xl font-extrabold text-depedDark">55 <span class="text-xs font-normal">Credits</span></span>
+        <span class="inline-block bg-deped text-white font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 50.00</span>
+    </button>
+    
+    <button type="button" onclick="initiatePaymongoCheckout(100, 110, this)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative w-full">
+        <span class="absolute -top-2 -right-2 bg-green-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+10 Bonus</span>
+        <span class="block text-2xl font-extrabold text-depedDark">110 <span class="text-xs font-normal">Credits</span></span>
+        <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 100.00</span>
+    </button>
+    
+    <button type="button" onclick="initiatePaymongoCheckout(500, 550, this)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative w-full">
+        <span class="absolute -top-2 -right-2 bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+50 Bonus</span>
+        <span class="block text-2xl font-extrabold text-depedDark">550 <span class="text-xs font-normal">Credits</span></span>
+        <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 500.00</span>
+    </button>
+</div>
                 <div class="flex justify-end">
                     <button type="button" onclick="closeTopUpModal()" class="btn-secondary !text-xs">Cancel</button>
                 </div>
@@ -446,9 +449,17 @@
             if (modal) modal.classList.add('hidden'); 
         }
 
-        async function initiatePaymongoCheckout(amountPhp, creditsToAdd) {
+        async function initiatePaymongoCheckout(amountPhp, creditsToAdd, btnElement = null) {
             if (!currentUser) return alert("Please sign in first before topping up credits.");
             
+            let originalHtml = "";
+            if (btnElement) {
+                originalHtml = btnElement.innerHTML;
+                btnElement.disabled = true;
+                btnElement.classList.add('loading');
+                btnElement.innerHTML = `<div class="py-3 flex flex-col items-center justify-center text-depedDark font-semibold text-sm"><i class="fa fa-spinner fa-spin text-2xl mb-1 text-deped"></i>Connecting...</div>`;
+            }
+
             try {
                 let authToken = SUPABASE_ANON_KEY;
                 if (supabaseClient) {
@@ -467,7 +478,7 @@
                     body: JSON.stringify({ 
                         userId: currentUser.id, 
                         email: currentUser.email, 
-                        amount: amountPhp, // FIXED: Changed to 'amount' to match Supabase Edge Function!
+                        amount: amountPhp, 
                         credits: creditsToAdd, 
                         returnUrl: window.location.href 
                     })
@@ -484,10 +495,21 @@
                     window.location.href = data.checkoutUrl;
                 } else {
                     alert("Payment initiation failed: " + (data.error || "No checkout URL returned from server."));
+                    if (btnElement) {
+                        btnElement.disabled = false;
+                        btnElement.classList.remove('loading');
+                        btnElement.innerHTML = originalHtml;
+                    }
                 }
             } catch (err) {
                 console.error("Payment Connection Error:", err);
                 alert(`Error connecting to payment server.\n\nPlease verify:\n1. BACKEND_CHECKOUT_API_URL at the top of the code is configured correctly.\n2. Your server handles preflight CORS (Cross-Origin Resource Sharing) requests.\n3. Your server is actively running.\n\nTechnical Details: ${err.message}`);
+                
+                if (btnElement) {
+                    btnElement.disabled = false;
+                    btnElement.classList.remove('loading');
+                    btnElement.innerHTML = originalHtml;
+                }
             }
         }
 

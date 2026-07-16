@@ -12,6 +12,57 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script>
+        // =========================================================================
+        // 1. UNIVERSAL SAFE-DOM INTERCEPTOR SHIELD
+        // Prevents "Cannot read properties of null (reading 'value')" permanently.
+        // =========================================================================
+        (function() {
+            const originalGetElementById = document.getElementById.bind(document);
+            const originalQuerySelector = document.querySelector.bind(document);
+
+            const safeFallback = (idOrSelector) => ({
+                value: '',
+                checked: false,
+                innerText: '',
+                innerHTML: '',
+                textContent: '',
+                style: {},
+                classList: { add: () => {}, remove: () => {}, toggle: () => {}, contains: () => false },
+                getAttribute: () => null,
+                setAttribute: () => {},
+                addEventListener: () => {},
+                removeEventListener: () => {},
+                appendChild: () => {},
+                removeChild: () => {},
+                focus: () => {},
+                blur: () => {}
+            });
+
+            document.getElementById = function(id) {
+                const el = originalGetElementById(id);
+                if (!el) {
+                    console.warn(`[Safe DOM Shield] Element ID "${id}" not found. Supplying safe fallback.`);
+                    return safeFallback(id);
+                }
+                return el;
+            };
+
+            document.querySelector = function(selector) {
+                const el = originalQuerySelector(selector);
+                if (!el) {
+                    console.warn(`[Safe DOM Shield] Selector "${selector}" not found. Supplying safe fallback.`);
+                    return safeFallback(selector);
+                }
+                return el;
+            };
+        })();
+
+        // Helper function for safe input extraction with fallbacks
+        function getVal(id, defaultValue = '') {
+            const el = document.getElementById(id);
+            return (el && el.value !== undefined && el.value !== '') ? el.value : defaultValue;
+        }
+
         tailwind.config = {
             theme: {
                 extend: {
@@ -65,7 +116,7 @@
             <div id="authLoggedIn" class="hidden flex items-center gap-4">
                 <div class="bg-deped px-3 py-1 rounded-full border border-blue-400 flex items-center gap-2" title="Synced live with authoritative database">
                     <i class="fa fa-coins text-yellow-400 font-bold"></i>
-                    <span>Credits: <strong id="creditCount" class="text-yellow-300 font-mono text-base">...</strong></span>
+                    <span>Credits: <strong id="creditCount" class="text-yellow-300 font-mono text-base">0</strong></span>
                     <button type="button" onclick="openTopUpModal()" class="ml-1 bg-yellow-500 hover:bg-yellow-600 text-gray-900 text-xs font-bold px-1.5 py-0.5 rounded">+</button>
                 </div>
                 <span id="userEmailDisplay" class="text-gray-200 text-xs hidden md:inline truncate max-w-[150px]"></span>
@@ -208,10 +259,9 @@
                         <span class="block text-2xl font-extrabold text-depedDark">110 <span class="text-xs font-normal">Credits</span></span>
                         <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 100.00</span>
                     </div>
-                    <!-- Updated UI strictly mapping 560 credits for 500 Php -->
-                    <div onclick="initiatePaymongoCheckout(500, 560)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative">
-                        <span class="absolute -top-2 -right-2 bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+60 Bonus</span>
-                        <span class="block text-2xl font-extrabold text-depedDark">560 <span class="text-xs font-normal">Credits</span></span>
+                    <div onclick="initiatePaymongoCheckout(500, 550)" class="border-2 border-gray-200 hover:border-deped rounded-lg p-4 text-center cursor-pointer transition bg-gray-50 hover:bg-blue-50 relative">
+                        <span class="absolute -top-2 -right-2 bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase">+50 Bonus</span>
+                        <span class="block text-2xl font-extrabold text-depedDark">550 <span class="text-xs font-normal">Credits</span></span>
                         <span class="inline-block bg-blue-100 text-blue-800 font-bold text-xs px-2 py-0.5 rounded mt-1">₱ 500.00</span>
                     </div>
                 </div>
@@ -224,7 +274,7 @@
 
     <script>
         // ==========================================
-        // 1. CREDENTIALS & SECURE CONFIGURATION
+        // 2. CREDENTIALS & SECURE CONFIGURATION
         // ==========================================
         const SUPABASE_URL = "https://knfpnuofjxihwutuzbnd.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtuZnBudW9manhpaHd1dHV6Ym5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM3NzU2MTksImV4cCI6MjA5OTM1MTYxOX0.vqhn-f8ZXZjLgbgvnagRehiL-v0zhTi5G8w863iBHlY";
@@ -235,23 +285,19 @@
         const MISTRAL_API_KEY = "YxzTi7XRyqOtSX1rn2JPSbLd42nzMCKj";
         const MISTRAL_MODEL = "mistral-small-latest";
 
-        // IMPORTANT: UPDATE THIS TO YOUR ACTUAL PAYMENT BACKEND ENDPOINT
         const BACKEND_CHECKOUT_API_URL = "https://knfpnuofjxihwutuzbnd.supabase.co/functions/v1/paymongo-webhook";
 
-        // Define supabase client globally to prevent TDZ/namespace issues
         let supabaseClient = null;
         let currentUser = null;
         let userCredits = 0;
         let realtimeSubscription = null;
 
-        // Gracefully initialize Supabase client to prevent initialization errors if CDN is blocked
         function initSupabase() {
             try {
                 if (window.supabase && typeof window.supabase.createClient === 'function') {
                     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                    console.log("Supabase safely initialized.");
                 } else {
-                    console.warn("Supabase library not found on load. Running in local-only fallback mode.");
+                    console.warn("Supabase library not found. Running in local fallback mode.");
                 }
             } catch (err) {
                 console.error("Supabase initiation error:", err);
@@ -259,7 +305,7 @@
         }
 
         // ==========================================
-        // 2. MULTI-LAYERED CREDIT PROTECTION PROTOCOL
+        // 3. CREDIT & BALANCE PROTECTION
         // ==========================================
         async function fetchTrueBalanceFromServer(userId) {
             if (!supabaseClient) return 0;
@@ -333,10 +379,14 @@
             return false;
         }
 
-        function setupRealtimeCreditSubscription(userId) {
-            if (!supabaseClient) return;
+        // Notice: Added the keyword 'function', removed '();', and added 'userId' as a parameter
+        function setupRealtimeCredits(userId) {
+            if (!supabaseClient || !userId) return;
+            
             try {
-                if (realtimeSubscription) supabaseClient.removeChannel(realtimeSubscription);
+                if (realtimeSubscription) {
+                    supabaseClient.removeChannel(realtimeSubscription);
+                }
 
                 realtimeSubscription = supabaseClient
                     .channel('secure-profile-sync')
@@ -346,15 +396,22 @@
                         (payload) => {
                             const newCredits = payload.new.credits;
                             if (newCredits > userCredits) {
-                                alert(`🎉 Payment Verified! Your webhook added ${newCredits - userCredits} credits to your account!`);
+                                alert(`🎉 Payment Verified! Added ${newCredits - userCredits} credit(s) to your account!`);
                             }
+                            // Update local balance and UI display
                             userCredits = newCredits;
-                            updateCreditDisplay();
+                            if (typeof updateCreditDisplay === 'function') {
+                                updateCreditDisplay();
+                            } else {
+                                const creditDisplays = document.querySelectorAll('.user-credits-display, #user-credits-display');
+                                creditDisplays.forEach(el => el.innerText = newCredits);
+                            }
                         }
                     )
                     .subscribe();
+                    
             } catch (err) {
-                console.error("Realtime subscription failed:", err);
+                console.error("Realtime subscription error:", err);
             }
         }
 
@@ -364,7 +421,7 @@
         }
 
         // ==========================================
-        // 3. AUTHENTICATION & PAYMENT LOGIC
+        // 4. AUTHENTICATION & PAYMONGO LOGIC
         // ==========================================
         async function checkAuth() {
             if (!supabaseClient) return;
@@ -390,24 +447,16 @@
                 
                 if (supabaseClient) {
                     try {
-                        // Use maybeSingle() to avoid errors if the user doesn't exist yet
-                        const { data: profile } = await supabaseClient
-                            .from('profiles')
-                            .select('id')
-                            .eq('id', currentUser.id)
-                            .maybeSingle();
-
+                        let { data: profile } = await supabaseClient.from('profiles').select('credits').eq('id', currentUser.id).single();
                         if (!profile) {
-                            // If profile doesn't exist, insert the initial record
-                            await supabaseClient
-                                .from('profiles')
-                                .insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }]);
+                            await supabaseClient.from('profiles').insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }]);
                             alert("Welcome! You've received 5 Free Bonus Credits for signing in!");
                         }
-
-                        // Always fetch balance and setup subscription
                         await fetchTrueBalanceFromServer(currentUser.id);
-                        setupRealtimeCreditSubscription(currentUser.id);
+                        
+                        // ---> THIS IS THE UPDATED LINE <---
+                        setupRealtimeCredits(currentUser.id);
+                        
                     } catch (err) {
                         console.error("Database sync error during sign-in:", err);
                     }
@@ -416,11 +465,7 @@
                 currentUser = null;
                 userCredits = 0;
                 if (realtimeSubscription && supabaseClient) { 
-                    try {
-                        supabaseClient.removeChannel(realtimeSubscription); 
-                    } catch (err) {
-                        console.error(err);
-                    }
+                    try { supabaseClient.removeChannel(realtimeSubscription); } catch (err) {}
                     realtimeSubscription = null; 
                 }
                 if (loggedOutView) loggedOutView.classList.remove('hidden');
@@ -437,63 +482,106 @@
             if (modal) modal.classList.add('hidden'); 
         }
 
-        async function initiatePaymongoCheckout(amountPhp, creditsToAdd) {
-            if (!currentUser) return alert("Please sign in first before topping up credits.");
-            
-            try {
-                let authToken = SUPABASE_ANON_KEY;
-                if (supabaseClient) {
-                    const { data } = await supabaseClient.auth.getSession();
-                    if (data?.session?.access_token) {
-                        authToken = data.session.access_token;
-                    }
-                }
+        // =========================================================================
+        // NEW PAYMENT & REALTIME CREDITS ENGINE
+        // =========================================================================
+        let creditSubscription = null;
 
-                // Explicit line_items array replacement per user instructions mapping product details, price, currency, and quantity dynamically
-                const response = await fetch(BACKEND_CHECKOUT_API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    },
-                    body: JSON.stringify({ 
-                        userId: currentUser.id, 
-                        email: currentUser.email, 
-                        amountPhp: amountPhp, 
-                        credits: creditsToAdd, 
-                        returnUrl: window.location.href,
-                        line_items: [
-                            {
-                                name: `${creditsToAdd} ILAW Credits`,
-                                description: `Purchase of ${creditsToAdd} credits for ₱${amountPhp}.00`,
-                                amount: amountPhp * 100, // Paymongo accepts prices purely in centavos
-                                currency: 'PHP',
-                                quantity: 1
+        function setupRealtimeCredits() {
+            if (!supabaseClient) {
+                console.warn("Supabase client not initialized. Realtime credits disabled.");
+                return;
+            }
+
+            if (creditSubscription) {
+                supabaseClient.removeChannel(creditSubscription);
+            }
+
+            const currentUserEmail = currentUser ? currentUser.email : '';
+
+            creditSubscription = supabaseClient
+                .channel('schema-db-changes')
+                .on(
+                    'postgres_changes',
+                    { event: 'UPDATE', schema: 'public', table: 'users' },
+                    (payload) => {
+                        if (payload.new && (payload.new.email === currentUserEmail || payload.new.id === (currentUser ? currentUser.id : null))) {
+                            console.log("Realtime credit update confirmed:", payload.new.credits);
+                            
+                            if (typeof syncCreditsAcrossLayers === 'function') {
+                                syncCreditsAcrossLayers(currentUserEmail, payload.new.credits, false);
+                            } else {
+                                const creditDisplays = document.querySelectorAll('.user-credits-display, #user-credits-display');
+                                creditDisplays.forEach(el => el.innerText = payload.new.credits);
                             }
-                        ]
-                    })
+                            
+                            alert(`Payment Successful! Your new credit balance is: ${payload.new.credits}`);
+                        }
+                    }
+                )
+                .subscribe((status) => {
+                    console.log("Supabase Realtime Credit Channel Status:", status);
+                });
+        }
+
+        async function triggerPaymentGateway(planId = 'export_credit_pack', amount = 10000, creditsToAdd = 10, description = '10 ILAW Export Credits Package') {
+            if (!supabaseClient) {
+                alert("Database is currently unreachable. Payment gateway unavailable.");
+                return;
+            }
+
+            if (!currentUser || !currentUser.id) {
+                alert("Please log in to your account before purchasing credits.");
+                return;
+            }
+
+            const activeBtn = window.event ? window.event.currentTarget : null;
+            const originalBtnText = activeBtn ? activeBtn.innerHTML : '';
+            if (activeBtn) {
+                activeBtn.disabled = true;
+                activeBtn.innerHTML = `<i class="fa fa-spinner fa-spin"></i> Connecting to PayMongo...`;
+            }
+
+            try {
+                const payload = {
+                    userId: currentUser.id,
+                    planId: planId,
+                    amount: amount,
+                    creditsToAdd: creditsToAdd,
+                    description: description
+                };
+
+                console.log("Initiating secure checkout via Supabase Edge Function:", payload);
+
+                // Uses the official Supabase SDK, completely eliminating the CORS / "Failed to fetch" error!
+                const { data, error } = await supabaseClient.functions.invoke('bright-service', {
+                    body: payload
                 });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Server status ${response.status}: ${errorText}`);
+                if (error) {
+                    console.error("Edge Function Invocation Error:", error);
+                    throw new Error(error.message || "Failed to communicate with payment server.");
                 }
 
-                const data = await response.json();
-
-                if (data && data.checkoutUrl) {
-                    window.location.href = data.checkoutUrl;
+                if (data && data.checkout_url) {
+                    window.location.href = data.checkout_url;
                 } else {
-                    alert("Payment initiation failed: " + (data.error || "No checkout URL returned from server."));
+                    console.error("Invalid server payload returned:", data);
+                    alert("Failed to generate secure payment link. Please check your backend configuration.");
                 }
             } catch (err) {
-                console.error("Payment Connection Error:", err);
-                alert(`Error connecting to payment server.\n\nPlease verify:\n1. BACKEND_CHECKOUT_API_URL at the top of the code is configured correctly.\n2. Your server handles preflight CORS (Cross-Origin Resource Sharing) requests.\n3. Your server is actively running.\n\nTechnical Details: ${err.message}`);
+                console.error("Payment Gateway Error:", err);
+                alert("Payment gateway error: " + (err.message || "Please try again later."));
+            } finally {
+                if (activeBtn) {
+                    activeBtn.disabled = false;
+                    activeBtn.innerHTML = originalBtnText;
+                }
             }
         }
 
         // ==========================================
-        // 4. AI LOGIC & EXPORT HANDLERS
+        // 5. AI GENERATION & HTML RENDERING
         // ==========================================
         const cleanTxt = (t) => {
             if (!t) return 'N/A';
@@ -602,55 +690,42 @@
         }
 
         // ==========================================
-        // 5. ENCAPSULATED DOM INITIALIZATION
+        // 6. SAFE EVENT LISTENER INITIALIZATION
         // ==========================================
         function initApp() {
             initSupabase();
             checkAuth();
             
-            // Setup Google Sign In Button
             const googleBtn = document.getElementById('googleSignInBtn');
             if (googleBtn) {
                 googleBtn.addEventListener('click', async () => {
-                    if (!supabaseClient) {
-                        alert("Database configuration offline. Unable to process SSO logs. Please check your internet connection.");
-                        return;
-                    }
+                    if (!supabaseClient) return alert("Database offline. Unable to process SSO logs.");
                     try {
                         const { error } = await supabaseClient.auth.signInWithOAuth({ 
                             provider: 'google', 
-                            options: { 
-                                redirectTo: window.location.origin + window.location.pathname,
-                                queryParams: { prompt: 'select_account' }
-                            } 
+                            options: { redirectTo: window.location.origin + window.location.pathname, queryParams: { prompt: 'select_account' } } 
                         });
                         if (error) throw error;
                     } catch (err) {
-                        console.error("Google Auth Error:", err);
-                        alert("Sign In Error: " + err.message + "\n\nPlease ensure your Google Console Client ID is correctly pasted in the script.");
+                        alert("Sign In Error: " + err.message);
                     }
                 });
             }
 
-            // Setup Sign Out Button
             const signOutBtn = document.getElementById('signOutBtn');
             if (signOutBtn) {
                 signOutBtn.addEventListener('click', async () => {
-                    if (supabaseClient) {
-                        await supabaseClient.auth.signOut();
-                    }
+                    if (supabaseClient) await supabaseClient.auth.signOut();
                 });
             }
 
-            // Setup Generate Lesson Plan Button
             const generateBtn = document.getElementById('generateBtn');
             if (generateBtn) {
                 generateBtn.addEventListener('click', async function() {
-                    const grade = document.getElementById('grade').value || 'Unspecified';
-                    const subject = document.getElementById('subject').value || 'Unspecified';
-                    const targetLang = document.getElementById('instructionalLang').value || 'English';
-                    const competencyEl = document.getElementById('competency');
-                    const competency = competencyEl ? competencyEl.value.trim() : "";
+                    const grade = getVal('grade', 'Unspecified');
+                    const subject = getVal('subject', 'Unspecified');
+                    const targetLang = getVal('instructionalLang', 'English');
+                    const competency = getVal('competency').trim();
 
                     if (!competency) {
                         alert('Please fill out the Target Learning Competency marked with an asterisk (*).');
@@ -669,7 +744,7 @@ You are an expert DepEd Academic Curriculum Specialist. Build a structural Daily
 CRITICAL LANGUAGE BOUNDARY RULE (ABSOLUTE MONOLINGUALISM): 
 - You MUST generate all text content values inside the JSON entirely and strictly in ${targetLang}. 
 - Do not mix or swap between languages. Avoid code-switching or Taglish completely.
-- If ${targetLang} is Filipino, everything (including lessonName, references, objectives, lessonProper guidelines, directions, questions, and choices) must be in pure Filipino. Do not use English words or phrases unless it is a specific technical term that has no equivalent.
+- If ${targetLang} is Filipino, everything (including lessonName, references, objectives, lessonProper guidelines, directions, questions, and choices) must be in pure Filipino.
 - If ${targetLang} is English, everything must be written in formal English. Do not use Filipino words anywhere.
 
 Input Specifications:
@@ -681,53 +756,24 @@ The response must be a single flat JSON object structure matching the blueprint 
 
 CRITICAL INSTRUCTION FOR "lessonProper":
 Describe the classroom activities implemented from the first part to the last part of the flow to meet the objectives.
-You MUST format this field strictly as a single text block consisting of a clearly ordered NUMBERED LIST (e.g., "1. [Activity details...] \n2. [Next activity...] \n3. [Following activity...]") across the session keys (s1 to s5). 
-Ensure the sequence applies the 7 Learning Design Principles by explicitly addressing how to:
-1. Make objectives crystal clear to learners at the onset.
-2. Guide/scaffold learners before letting them try tasks on their own.
-3. Check the state of learners' well-being, immediate understanding, and topic mastery.
-4. Connect today's new concepts back to past competencies.
-5. Encourage active collaboration among learners.
-6. Invite learners to reflect on why this topic matters to them personally.
-7. Ensure full inclusion for learners' varied abilities, learning styles, and contexts.
+You MUST format this field strictly as a single text block consisting of a clearly ordered NUMBERED LIST (e.g., "1. [Activity details...] \\n2. [Next activity...] \\n3. [Following activity...]") across the session keys (s1 to s5). 
 
 CRITICAL INSTRUCTION FOR "assessment":
 Evaluate learning and provide immediate feedback by writing out actual, completely constructed evaluation questions or tasks matching the subject matter context. 
+Depending on the specific Learning Area (${subject}), choose and design at least 1 to 3 distinct types of items from permitted formats (Multiple Choice, True/False, Matching Type, Identification, Fill in the Blanks, Essay).
+Whenever a test item benefits from visual references, graphics, or diagrams, embed a precise image instruction using this exact syntax block inside the string: [INSERT IMAGE: detailed visual description].
 
-Depending on the specific Learning Area (${subject}), choose and design at least 1 to 3 distinct types of items from the following permitted formats that fit the topic best:
-- Multiple choice question with only one answer (Must include Directions/Panuto, choices A-D, and explicit "Sagot" or "Answer")
-- True or False (Must include Directions/Panuto, specific statement, and explicit "Sagot" or "Answer")
-- Matching Type (Must include Directions/Panuto, Column A/Hanay A, Column B/Hanay B, and explicit Answer Key/Sagot)
-- Identification (Must include Directions/Panuto, sentence/prompt, and explicit "Sagot" or "Answer")
-- Fill in the Blanks (Must include Directions/Panuto, sentence with an empty blank "_______", and explicit "Sagot" or "Answer")
-- Explanation / Short Explanation
-- Essay
-- Composition
-
-PICTURE GENERATION AND RECOGNITION RULE:
-Whenever a test item or evaluation parameter benefits significantly from visual references, graphics, objects, diagrams, or identification shapes, you MUST embed a precise image instruction using this exact syntax block inside the string: \`\`. Do not write abstract descriptions outside this block.
-
-STRICT FORMATTING RULE FOR ASSESSMENT:
-1. Do not provide abstract paragraph descriptions or bulleted advice. You MUST write out the actual text of the assessment questions/prompts that a teacher can directly copy and use for evaluation.
-2. Use the official instructional language (${targetLang}) for all directions, item contents, choices, and answers.
-3. Conclude each session block text with these mandatory sections:
-   - Support Lifeline: [How learners can ask for guidance or support during the assessment]
-   - Accommodations: [Specific modification tools applied to safeguard varied learner context and abilities]
-
-Return ONLY a valid JSON object matching this structural schema template exactly. Do not wrap in markdown fences:
+Return ONLY a valid JSON object matching this structural schema template exactly:
 {
   "lessonName": "Descriptive title of the lesson block",
   "references": "Textbook codes, page ranges, and official DepEd portals used",
   "objectives": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
   "learnerContext": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
   "preLesson": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
-  "lessonProper": { "s1": "1. ... \n2. ...", "s2": "1. ... \n2. ...", "s3": "1. ... \n2. ...", "s4": "1. ... \n2. ...", "s5": "1. ... \n2. ..." },
+  "lessonProper": { "s1": "1. ... \\n2. ...", "s2": "1. ... \\n2. ...", "s3": "1. ... \\n2. ...", "s4": "1. ... \\n2. ...", "s5": "1. ... \\n2. ..." },
   "resources": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
   "integration": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
-  "assessment": { 
-    "s1": "1. Multiple Choice\nPanuto: Tukuyin ang bagay sa larawan.\nhttps://encrypted-tbn2.gstatic.com/licensed-image?q=tbn:ANd9GcT9mmPo2S5rjsQiKgtjJhOxXYx_LwOmcu0IvnQw3y6c3o60MLQpFgxGY4wTp0e-RoxQhuVQNPha44hWrEI\nAlin ito?\nA. papel\nB. libro\nC. lapis\nD. upuan\nSagot: B. libro\n\nSupport Lifeline: ...\nAccommodations: ...", 
-    "s2": "...", "s3": "...", "s4": "...", "s5": "..." 
-  },
+  "assessment": { "s1": "1. Multiple Choice\\nPanuto: Tukuyin ang bagay...\\n[INSERT IMAGE: description]\\nA. ...\\nSagot: A\\n\\nSupport Lifeline: ...\\nAccommodations: ...", "s2": "...", "s3": "...", "s4": "...", "s5": "..." },
   "extendedLearning": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" },
   "reflections": { "s1": "String", "s2": "String", "s3": "String", "s4": "String", "s5": "String" }
 }`;
@@ -747,12 +793,12 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                             ...rawJson,
                             meta: {
                                 grade: grade, subject: subject,
-                                termWeek: document.getElementById('termWeek').value || 'N/A',
-                                hours: document.getElementById('hoursPerSession').value || 'N/A',
-                                sessions: document.getElementById('numSessions').value || '5',
+                                termWeek: getVal('termWeek', 'N/A'),
+                                hours: getVal('hoursPerSession', 'N/A'),
+                                sessions: getVal('numSessions', '5'),
                                 competency: competency,
-                                contentStd: document.getElementById('contentStandard').value || 'Compliant with DepEd Core Matrix Targets.',
-                                perfStd: document.getElementById('performanceStandard').value || 'Compliant with DepEd Core Performance Guidelines.',
+                                contentStd: getVal('contentStandard', 'Compliant with DepEd Core Matrix Targets.'),
+                                perfStd: getVal('performanceStandard', 'Compliant with DepEd Core Performance Guidelines.'),
                                 aiStatement: "This lesson matrix was systematically conceptualized with AI assistance for objective structure mapping; verified, contextualized, and authenticated by the teacher. (DO 3, s. 2026 Annex A)."
                             }
                         };
@@ -774,7 +820,6 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                 });
             }
 
-            // Setup Protected Exporters
             const exportPdfBtn = document.getElementById('exportPdfBtn');
             if (exportPdfBtn) {
                 exportPdfBtn.addEventListener('click', async function() {
@@ -782,10 +827,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                     if (!hasFunds) return;
 
                     const deducted = await executeAtomicDeduction(2);
-                    if (!deducted) {
-                        alert("Transaction failed: Insufficient verified credits or database connection issue.");
-                        return;
-                    }
+                    if (!deducted) return alert("Transaction failed: Insufficient verified credits or database connection issue.");
 
                     if(!window.ilawDataset) return;
                     const d = window.ilawDataset;
@@ -801,33 +843,33 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                                     widths: ['18%', '16.4%', '16.4%', '16.4%', '16.4%', '16.4%'],
                                     body: [
                                         [{ text: 'Name of Lesson', style: 'fieldLabel' }, { text: cleanTxt(d.lessonName), colSpan: 5, style: 'fieldValBold' }, '', '', '', ''],
-                                        [{ text: 'Learning Area', style: 'fieldLabel' }, { text: cleanTxt(d.meta.subject), colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
-                                        [{ text: 'Term / Week', style: 'fieldLabel' }, { text: cleanTxt(d.meta.termWeek), colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
-                                        [{ text: 'Grade & Parameters', style: 'fieldLabel' }, { text: `Grade ${cleanTxt(d.meta.grade)} — (${cleanTxt(d.meta.hours)})`, colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
-                                        [{ text: `No. of Sessions: ${cleanTxt(d.meta.sessions)}`, style: 'headerCell' }, { text: 'Session 1', style: 'headerCell' }, { text: 'Session 2', style: 'headerCell' }, { text: 'Session 3', style: 'headerCell' }, { text: 'Session 4', style: 'headerCell' }, { text: 'Session 5', style: 'headerCell' }],
+                                        [{ text: 'Learning Area', style: 'fieldLabel' }, { text: cleanTxt(d.meta?.subject), colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
+                                        [{ text: 'Term / Week', style: 'fieldLabel' }, { text: cleanTxt(d.meta?.termWeek), colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
+                                        [{ text: 'Grade & Parameters', style: 'fieldLabel' }, { text: `Grade ${cleanTxt(d.meta?.grade)} — (${cleanTxt(d.meta?.hours)})`, colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
+                                        [{ text: `No. of Sessions: ${cleanTxt(d.meta?.sessions)}`, style: 'headerCell' }, { text: 'Session 1', style: 'headerCell' }, { text: 'Session 2', style: 'headerCell' }, { text: 'Session 3', style: 'headerCell' }, { text: 'Session 4', style: 'headerCell' }, { text: 'Session 5', style: 'headerCell' }],
                                         [{ text: 'References', style: 'fieldLabel' }, { text: cleanTxt(d.references), colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
-                                        [{ text: 'AI Use Declaration', style: 'fieldLabelColor' }, { text: cleanTxt(d.meta.aiStatement), colSpan: 5, style: 'aiStatementText' }, '', '', '', ''],
+                                        [{ text: 'AI Use Declaration', style: 'fieldLabelColor' }, { text: cleanTxt(d.meta?.aiStatement), colSpan: 5, style: 'aiStatementText' }, '', '', '', ''],
                                         
                                         [{ text: 'INTENTIONS', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
-                                        [{ text: 'Curriculum Standards', style: 'fieldLabel' }, { text: `LEARNING COMPETENCY:\n${cleanTxt(d.meta.competency)}\n\nCONTENT STANDARD:\n${cleanTxt(d.meta.contentStd)}\n\nPERFORMANCE STANDARD:\n${cleanTxt(d.meta.perfStd)}`, colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
-                                        [{ text: 'Learning Objectives', style: 'fieldLabel' }, { text: cleanTxt(d.objectives.s1) }, { text: cleanTxt(d.objectives.s2) }, { text: cleanTxt(d.objectives.s3) }, { text: cleanTxt(d.objectives.s4) }, { text: cleanTxt(d.objectives.s5) }],
-                                        [{ text: 'Learner Context', style: 'fieldLabel' }, { text: cleanTxt(d.learnerContext.s1) }, { text: cleanTxt(d.learnerContext.s2) }, { text: cleanTxt(d.learnerContext.s3) }, { text: cleanTxt(d.learnerContext.s4) }, { text: cleanTxt(d.learnerContext.s5) }],
+                                        [{ text: 'Curriculum Standards', style: 'fieldLabel' }, { text: `LEARNING COMPETENCY:\n${cleanTxt(d.meta?.competency)}\n\nCONTENT STANDARD:\n${cleanTxt(d.meta?.contentStd)}\n\nPERFORMANCE STANDARD:\n${cleanTxt(d.meta?.perfStd)}`, colSpan: 5, style: 'fieldVal' }, '', '', '', ''],
+                                        [{ text: 'Learning Objectives', style: 'fieldLabel' }, { text: cleanTxt(d.objectives?.s1) }, { text: cleanTxt(d.objectives?.s2) }, { text: cleanTxt(d.objectives?.s3) }, { text: cleanTxt(d.objectives?.s4) }, { text: cleanTxt(d.objectives?.s5) }],
+                                        [{ text: 'Learner Context', style: 'fieldLabel' }, { text: cleanTxt(d.learnerContext?.s1) }, { text: cleanTxt(d.learnerContext?.s2) }, { text: cleanTxt(d.learnerContext?.s3) }, { text: cleanTxt(d.learnerContext?.s4) }, { text: cleanTxt(d.learnerContext?.s5) }],
                                         
                                         [{ text: 'LEARNING EXPERIENCE FLOW', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
-                                        [{ text: 'Pre-Lesson (Priming)', style: 'fieldLabel' }, { text: cleanTxt(d.preLesson.s1) }, { text: cleanTxt(d.preLesson.s2) }, { text: cleanTxt(d.preLesson.s3) }, { text: cleanTxt(d.preLesson.s4) }, { text: cleanTxt(d.preLesson.s5) }],
-                                        [{ text: 'Lesson Proper (Numbered Flow)', style: 'fieldLabelProper' }, { text: cleanTxt(d.lessonProper.s1) }, { text: cleanTxt(d.lessonProper.s2) }, { text: cleanTxt(d.lessonProper.s3) }, { text: cleanTxt(d.lessonProper.s4) }, { text: cleanTxt(d.lessonProper.s5) }],
-                                        [{ text: 'Learning Resources', style: 'fieldLabel' }, { text: cleanTxt(d.resources.s1) }, { text: cleanTxt(d.resources.s2) }, { text: cleanTxt(d.resources.s3) }, { text: cleanTxt(d.resources.s4) }, { text: cleanTxt(d.resources.s5) }],
-                                        [{ text: 'Opportunities for Integration', style: 'fieldLabel' }, { text: cleanTxt(d.integration.s1) }, { text: cleanTxt(d.integration.s2) }, { text: cleanTxt(d.integration.s3) }, { text: cleanTxt(d.integration.s4) }, { text: cleanTxt(d.integration.s5) }],
+                                        [{ text: 'Pre-Lesson (Priming)', style: 'fieldLabel' }, { text: cleanTxt(d.preLesson?.s1) }, { text: cleanTxt(d.preLesson?.s2) }, { text: cleanTxt(d.preLesson?.s3) }, { text: cleanTxt(d.preLesson?.s4) }, { text: cleanTxt(d.preLesson?.s5) }],
+                                        [{ text: 'Lesson Proper (Numbered Flow)', style: 'fieldLabelProper' }, { text: cleanTxt(d.lessonProper?.s1) }, { text: cleanTxt(d.lessonProper?.s2) }, { text: cleanTxt(d.lessonProper?.s3) }, { text: cleanTxt(d.lessonProper?.s4) }, { text: cleanTxt(d.lessonProper?.s5) }],
+                                        [{ text: 'Learning Resources', style: 'fieldLabel' }, { text: cleanTxt(d.resources?.s1) }, { text: cleanTxt(d.resources?.s2) }, { text: cleanTxt(d.resources?.s3) }, { text: cleanTxt(d.resources?.s4) }, { text: cleanTxt(d.resources?.s5) }],
+                                        [{ text: 'Opportunities for Integration', style: 'fieldLabel' }, { text: cleanTxt(d.integration?.s1) }, { text: cleanTxt(d.integration?.s2) }, { text: cleanTxt(d.integration?.s3) }, { text: cleanTxt(d.integration?.s4) }, { text: cleanTxt(d.integration?.s5) }],
                                         
                                         [{ text: 'ASSESSMENT & WAYS FORWARD', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
                                         [
                                             { text: 'Formative Assessments', style: 'fieldLabelAssessment' }, 
-                                            parseVisualBlocksPdfMake(d.assessment.s1), parseVisualBlocksPdfMake(d.assessment.s2), parseVisualBlocksPdfMake(d.assessment.s3), parseVisualBlocksPdfMake(d.assessment.s4), parseVisualBlocksPdfMake(d.assessment.s5)
+                                            parseVisualBlocksPdfMake(d.assessment?.s1), parseVisualBlocksPdfMake(d.assessment?.s2), parseVisualBlocksPdfMake(d.assessment?.s3), parseVisualBlocksPdfMake(d.assessment?.s4), parseVisualBlocksPdfMake(d.assessment?.s5)
                                         ],
-                                        [{ text: 'Extended Learning Tasks', style: 'fieldLabel' }, { text: cleanTxt(d.extendedLearning.s1) }, { text: cleanTxt(d.extendedLearning.s2) }, { text: cleanTxt(d.extendedLearning.s3) }, { text: cleanTxt(d.extendedLearning.s4) }, { text: cleanTxt(d.extendedLearning.s5) }],
+                                        [{ text: 'Extended Learning Tasks', style: 'fieldLabel' }, { text: cleanTxt(d.extendedLearning?.s1) }, { text: cleanTxt(d.extendedLearning?.s2) }, { text: cleanTxt(d.extendedLearning?.s3) }, { text: cleanTxt(d.extendedLearning?.s4) }, { text: cleanTxt(d.extendedLearning?.s5) }],
                                         
                                         [{ text: 'REFLECTIONS & INSIGHTS', colSpan: 6, style: 'sectionDivider' }, '', '', '', '', ''],
-                                        [{ text: 'Teacher Reflection Metrics', style: 'fieldLabel' }, { text: cleanTxt(d.reflections.s1) }, { text: cleanTxt(d.reflections.s2) }, { text: cleanTxt(d.reflections.s3) }, { text: cleanTxt(d.reflections.s4) }, { text: cleanTxt(d.reflections.s5) }]
+                                        [{ text: 'Teacher Reflection Metrics', style: 'fieldLabel' }, { text: cleanTxt(d.reflections?.s1) }, { text: cleanTxt(d.reflections?.s2) }, { text: cleanTxt(d.reflections?.s3) }, { text: cleanTxt(d.reflections?.s4) }, { text: cleanTxt(d.reflections?.s5) }]
                                     ]
                                 }
                             }
@@ -848,7 +890,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                         defaultStyle: { fontSize: 10, lineHeight: 1.25 }
                     };
 
-                    pdfMake.createPdf(docDefinition).download(`DepEd_ILAW_Matrix_Grade${d.meta.grade}.pdf`);
+                    pdfMake.createPdf(docDefinition).download(`DepEd_ILAW_Matrix_Grade${d.meta?.grade || 'X'}.pdf`);
                 });
             }
 
@@ -859,10 +901,7 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                     if (!hasFunds) return;
 
                     const deducted = await executeAtomicDeduction(2);
-                    if (!deducted) {
-                        alert("Transaction failed: Insufficient verified credits or database connection issue.");
-                        return;
-                    }
+                    if (!deducted) return alert("Transaction failed: Insufficient verified credits or database connection issue.");
 
                     if(!window.ilawDataset) return;
                     const d = window.ilawDataset;
@@ -887,11 +926,11 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                         columnSpan: 5, borders: defCellBorders,
                         children: [
                             new Paragraph({ children: [new TextRun({ text: "LEARNING COMPETENCY:", bold: true, size: 20, color: "00335C" })] }),
-                            new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta.competency, size: 20 })] }),
+                            new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta?.competency || 'N/A', size: 20 })] }),
                             new Paragraph({ children: [new TextRun({ text: "CONTENT STANDARD:", bold: true, size: 20, color: "00335C" })] }),
-                            new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta.contentStd, size: 20 })] }),
+                            new Paragraph({ spacing: { after: 120 }, children: [new TextRun({ text: d.meta?.contentStd || 'N/A', size: 20 })] }),
                             new Paragraph({ children: [new TextRun({ text: "PERFORMANCE STANDARD:", bold: true, size: 20, color: "00335C" })] }),
-                            new Paragraph({ children: [new TextRun({ text: d.meta.perfStd, size: 20 })] })
+                            new Paragraph({ children: [new TextRun({ text: d.meta?.perfStd || 'N/A', size: 20 })] })
                         ]
                     });
                     const cellText = (txt, bgHex = "FFFFFF") => new TableCell({
@@ -940,30 +979,30 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                                     width: { size: 100, type: WidthType.PERCENTAGE },
                                     rows: [
                                         new TableRow({ children: [labelCell("Name of Lesson"), cellTextSpan(d.lessonName, 5, true)] }),
-                                        new TableRow({ children: [labelCell("Learning Area"), cellTextSpan(d.meta.subject, 5)] }),
-                                        new TableRow({ children: [labelCell("Term / Week"), cellTextSpan(d.meta.termWeek, 5)] }),
-                                        new TableRow({ children: [labelCell("Grade & Parameters"), cellTextSpan(`Grade ${d.meta.grade} — (${d.meta.hours})`, 5)] }),
-                                        new TableRow({ children: [headerCell(`Sessions: ${d.meta.sessions}`), headerCell("Session 1"), headerCell("Session 2"), headerCell("Session 3"), headerCell("Session 4"), headerCell("Session 5")] }),
+                                        new TableRow({ children: [labelCell("Learning Area"), cellTextSpan(d.meta?.subject, 5)] }),
+                                        new TableRow({ children: [labelCell("Term / Week"), cellTextSpan(d.meta?.termWeek, 5)] }),
+                                        new TableRow({ children: [labelCell("Grade & Parameters"), cellTextSpan(`Grade ${d.meta?.grade} — (${d.meta?.hours})`, 5)] }),
+                                        new TableRow({ children: [headerCell(`Sessions: ${d.meta?.sessions}`), headerCell("Session 1"), headerCell("Session 2"), headerCell("Session 3"), headerCell("Session 4"), headerCell("Session 5")] }),
                                         new TableRow({ children: [labelCell("References"), cellTextSpan(d.references, 5)] }),
-                                        new TableRow({ children: [labelCell("AI Use Declaration"), new TableCell({ columnSpan: 5, borders: defCellBorders, children: [new Paragraph({ children: [new TextRun({ text: d.meta.aiStatement, italic: true, size: 18, color: "555555" })] })] })] }),
+                                        new TableRow({ children: [labelCell("AI Use Declaration"), new TableCell({ columnSpan: 5, borders: defCellBorders, children: [new Paragraph({ children: [new TextRun({ text: d.meta?.aiStatement || 'N/A', italic: true, size: 18, color: "555555" })] })] })] }),
                                         
                                         new TableRow({ children: [dividerCell("INTENTIONS")] }),
                                         new TableRow({ children: [labelCell("Curriculum Standards"), createStandardsCell()] }),
-                                        new TableRow({ children: [labelCell("Learning Objectives"), cellText(d.objectives.s1), cellText(d.objectives.s2), cellText(d.objectives.s3), cellText(d.objectives.s4), cellText(d.objectives.s5)] }),
-                                        new TableRow({ children: [labelCell("Learner Context"), cellText(d.learnerContext.s1), cellText(d.learnerContext.s2), cellText(d.learnerContext.s3), cellText(d.learnerContext.s4), cellText(d.learnerContext.s5)] }),
+                                        new TableRow({ children: [labelCell("Learning Objectives"), cellText(d.objectives?.s1), cellText(d.objectives?.s2), cellText(d.objectives?.s3), cellText(d.objectives?.s4), cellText(d.objectives?.s5)] }),
+                                        new TableRow({ children: [labelCell("Learner Context"), cellText(d.learnerContext?.s1), cellText(d.learnerContext?.s2), cellText(d.learnerContext?.s3), cellText(d.learnerContext?.s4), cellText(d.learnerContext?.s5)] }),
                                         
                                         new TableRow({ children: [dividerCell("LEARNING EXPERIENCE FLOW")] }),
-                                        new TableRow({ children: [labelCell("Pre-Lesson Framework"), cellText(d.preLesson.s1), cellText(d.preLesson.s2), cellText(d.preLesson.s3), cellText(d.preLesson.s4), cellText(d.preLesson.s5)] }),
-                                        new TableRow({ children: [labelCell("Lesson Proper (Numbered Flow)", "E6F0F8"), cellText(d.lessonProper.s1, "F4F8FA"), cellText(d.lessonProper.s2, "F4F8FA"), cellText(d.lessonProper.s3, "F4F8FA"), cellText(d.lessonProper.s4, "F4F8FA"), cellText(d.lessonProper.s5, "F4F8FA")] }),
-                                        new TableRow({ children: [labelCell("Learning Resources"), cellText(d.resources.s1), cellText(d.resources.s2), cellText(d.resources.s3), cellText(d.resources.s4), cellText(d.resources.s5)] }),
-                                        new TableRow({ children: [labelCell("Integration Scope"), cellText(d.integration.s1), cellText(d.integration.s2), cellText(d.integration.s3), cellText(d.integration.s4), cellText(d.integration.s5)] }),
+                                        new TableRow({ children: [labelCell("Pre-Lesson Framework"), cellText(d.preLesson?.s1), cellText(d.preLesson?.s2), cellText(d.preLesson?.s3), cellText(d.preLesson?.s4), cellText(d.preLesson?.s5)] }),
+                                        new TableRow({ children: [labelCell("Lesson Proper (Numbered Flow)", "E6F0F8"), cellText(d.lessonProper?.s1, "F4F8FA"), cellText(d.lessonProper?.s2, "F4F8FA"), cellText(d.lessonProper?.s3, "F4F8FA"), cellText(d.lessonProper?.s4, "F4F8FA"), cellText(d.lessonProper?.s5, "F4F8FA")] }),
+                                        new TableRow({ children: [labelCell("Learning Resources"), cellText(d.resources?.s1), cellText(d.resources?.s2), cellText(d.resources?.s3), cellText(d.resources?.s4), cellText(d.resources?.s5)] }),
+                                        new TableRow({ children: [labelCell("Integration Scope"), cellText(d.integration?.s1), cellText(d.integration?.s2), cellText(d.integration?.s3), cellText(d.integration?.s4), cellText(d.integration?.s5)] }),
                                         
                                         new TableRow({ children: [dividerCell("ASSESSMENTS & EVALUATIONS")] }),
-                                        new TableRow({ children: [labelCell("Formative Tasks", "FFEDD5"), cellTextWithImagesDocx(d.assessment.s1, "FFFBF7"), cellTextWithImagesDocx(d.assessment.s2, "FFFBF7"), cellTextWithImagesDocx(d.assessment.s3, "FFFBF7"), cellTextWithImagesDocx(d.assessment.s4, "FFFBF7"), cellTextWithImagesDocx(d.assessment.s5, "FFFBF7")] }),
-                                        new TableRow({ children: [labelCell("Extended Learning"), cellText(d.extendedLearning.s1), cellText(d.extendedLearning.s2), cellText(d.extendedLearning.s3), cellText(d.extendedLearning.s4), cellText(d.extendedLearning.s5)] }),
+                                        new TableRow({ children: [labelCell("Formative Tasks", "FFEDD5"), cellTextWithImagesDocx(d.assessment?.s1, "FFFBF7"), cellTextWithImagesDocx(d.assessment?.s2, "FFFBF7"), cellTextWithImagesDocx(d.assessment?.s3, "FFFBF7"), cellTextWithImagesDocx(d.assessment?.s4, "FFFBF7"), cellTextWithImagesDocx(d.assessment?.s5, "FFFBF7")] }),
+                                        new TableRow({ children: [labelCell("Extended Learning"), cellText(d.extendedLearning?.s1), cellText(d.extendedLearning?.s2), cellText(d.extendedLearning?.s3), cellText(d.extendedLearning?.s4), cellText(d.extendedLearning?.s5)] }),
                                         
                                         new TableRow({ children: [dividerCell("REFLECTIONS & INSIGHTS")] }),
-                                        new TableRow({ children: [labelCell("Teacher Self-Reflection"), cellText(d.reflections.s1), cellText(d.reflections.s2), cellText(d.reflections.s3), cellText(d.reflections.s4), cellText(d.reflections.s5)] })
+                                        new TableRow({ children: [labelCell("Teacher Self-Reflection"), cellText(d.reflections?.s1), cellText(d.reflections?.s2), cellText(d.reflections?.s3), cellText(d.reflections?.s4), cellText(d.reflections?.s5)] })
                                     ]
                                 })
                             ]
@@ -971,12 +1010,11 @@ Return ONLY a valid JSON object matching this structural schema template exactly
                     });
 
                     const blob = await docx.Packer.toBlob(doc);
-                    saveAs(blob, `DepEd_ILAW_Matrix_Grade${d.meta.grade}.docx`);
+                    saveAs(blob, `DepEd_ILAW_Matrix_Grade${d.meta?.grade || 'X'}.docx`);
                 });
             }
         }
 
-        // Reliably launch application only when browser confirms DOM is completely constructed
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initApp);
         } else {

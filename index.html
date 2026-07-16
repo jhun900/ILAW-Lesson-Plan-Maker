@@ -396,7 +396,7 @@
                             alert("Welcome! You've received 5 Free Bonus Credits for signing in!");
                         }
                         await fetchTrueBalanceFromServer(currentUser.id);
-                        setupRealtimeCreditSubscription(currentUser.id);
+                        setupRealtimeCredits(currentUser.id);
                     } catch (err) {
                         console.error("Database sync error during sign-in:", err);
                     }

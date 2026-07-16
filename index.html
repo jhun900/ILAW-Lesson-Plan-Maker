@@ -377,7 +377,7 @@
             }
         }
 
-        async function handleSession(session) {
+       async function handleSession(session) {
             const loggedOutView = document.getElementById('authLoggedOut');
             const loggedInView = document.getElementById('authLoggedIn');
             const emailDisplay = document.getElementById('userEmailDisplay');
@@ -390,13 +390,39 @@
                 
                 if (supabaseClient) {
                     try {
-                        let { data: profile } = await supabaseClient.from('profiles').select('credits').eq('id', currentUser.id).single();
+                        // 1. Fetch the user profile
+                        let { data: profile, error } = await supabaseClient
+                            .from('profiles')
+                            .select('credits')
+                            .eq('id', currentUser.id)
+                            .maybeSingle(); // Safer than .single() as it won't crash if empty
+
+                        // 2. If the profile doesn't exist at all, create it
                         if (!profile) {
-                            await supabaseClient.from('profiles').insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }]);
+                            const { data: newProfile, error: insertError } = await supabaseClient
+                                .from('profiles')
+                                .insert([{ id: currentUser.id, email: currentUser.email, credits: 5 }])
+                                .select()
+                                .single();
+
+                            if (insertError) throw insertError;
+                            
+                            userCredits = 5;
                             alert("Welcome! You've received 5 Free Bonus Credits for signing in!");
+                        } else {
+                            // 3. Otherwise, set your local global variable to your actual database credits!
+                            userCredits = profile.credits;
                         }
-                        await fetchTrueBalanceFromServer(currentUser.id);
+
+                        // 4. Update the visual displays on your screen immediately
+                        updateCreditDisplay();
+
+                        // 5. Run your background synchronizers
+                        if (typeof fetchTrueBalanceFromServer === 'function') {
+                            await fetchTrueBalanceFromServer(currentUser.id);
+                        }
                         setupRealtimeCredits(currentUser.id);
+                        
                     } catch (err) {
                         console.error("Database sync error during sign-in:", err);
                     }
@@ -404,12 +430,9 @@
             } else {
                 currentUser = null;
                 userCredits = 0;
+                updateCreditDisplay();
                 if (realtimeSubscription && supabaseClient) { 
-                    try {
-                        supabaseClient.removeChannel(realtimeSubscription); 
-                    } catch (err) {
-                        console.error(err);
-                    }
+                    try { supabaseClient.removeChannel(realtimeSubscription); } catch (err) {}
                     realtimeSubscription = null; 
                 }
                 if (loggedOutView) loggedOutView.classList.remove('hidden');

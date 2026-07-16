@@ -390,14 +390,12 @@
                 
                 if (supabaseClient) {
                     try {
-                        // 1. Fetch the user profile
                         let { data: profile, error } = await supabaseClient
                             .from('profiles')
                             .select('credits')
                             .eq('id', currentUser.id)
-                            .maybeSingle(); // Safer than .single() as it won't crash if empty
+                            .maybeSingle();
 
-                        // 2. If the profile doesn't exist at all, create it
                         if (!profile) {
                             const { data: newProfile, error: insertError } = await supabaseClient
                                 .from('profiles')
@@ -410,18 +408,17 @@
                             userCredits = 5;
                             alert("Welcome! You've received 5 Free Bonus Credits for signing in!");
                         } else {
-                            // 3. Otherwise, set your local global variable to your actual database credits!
                             userCredits = profile.credits;
                         }
 
-                        // 4. Update the visual displays on your screen immediately
                         updateCreditDisplay();
 
-                        // 5. Run your background synchronizers
                         if (typeof fetchTrueBalanceFromServer === 'function') {
                             await fetchTrueBalanceFromServer(currentUser.id);
                         }
-                        setupRealtimeCredits(currentUser.id);
+                        
+                        // FIXED: Changed to the correct function name!
+                        setupRealtimeCreditSubscription(currentUser.id);
                         
                     } catch (err) {
                         console.error("Database sync error during sign-in:", err);
@@ -453,8 +450,6 @@
             if (!currentUser) return alert("Please sign in first before topping up credits.");
             
             try {
-                // Determine authorization token: Use active session token if signed in, otherwise default to Anon Key.
-                // This ensures external backends and Supabase Edge Functions both receive valid auth variables.
                 let authToken = SUPABASE_ANON_KEY;
                 if (supabaseClient) {
                     const { data } = await supabaseClient.auth.getSession();
@@ -463,7 +458,6 @@
                     }
                 }
 
-                // Using standard fetch allows you to map to ANY backend provider easily (Vercel, Render, Node.js, Edge Functions).
                 const response = await fetch(BACKEND_CHECKOUT_API_URL, {
                     method: 'POST',
                     headers: {
@@ -473,7 +467,7 @@
                     body: JSON.stringify({ 
                         userId: currentUser.id, 
                         email: currentUser.email, 
-                        amountPhp: amountPhp, 
+                        amount: amountPhp, // FIXED: Changed to 'amount' to match Supabase Edge Function!
                         credits: creditsToAdd, 
                         returnUrl: window.location.href 
                     })
